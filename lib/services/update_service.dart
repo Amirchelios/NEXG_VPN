@@ -73,7 +73,7 @@ class UpdateService {
   }
 
   // Launch URL
-  Future<void> _launchUrl(String url, [BuildContext? context]) async {
+  Future<void> _launchUrl(String url) async {
     final Uri uri = Uri.parse(url);
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       debugPrint('Could not launch $url');
