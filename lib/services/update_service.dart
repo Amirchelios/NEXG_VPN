@@ -14,7 +14,7 @@ class UpdateService {
       final response = await http
           .get(Uri.parse(updateUrl))
           .timeout(
-            const Duration(seconds: 60),
+            const Duration(seconds: 5),
             onTimeout: () {
               throw Exception(
                 'Network timeout: Check your internet connection',
