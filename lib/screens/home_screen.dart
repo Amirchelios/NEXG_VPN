@@ -534,16 +534,21 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const ConnectionButton(),
 
                                 const SizedBox(height: 40),
-
-                                // Connection stats
-                                if (provider.activeConfig != null)
-                                  _buildConnectionStats(provider),
                               ],
                             ),
                           ),
                         );
                       },
                     ),
+                  ),
+                  Consumer<V2RayProvider>(
+                    builder: (context, provider, _) {
+                      if (provider.activeConfig == null) {
+                        return const SizedBox.shrink();
+                      }
+
+                      return _buildLocationBar(provider);
+                    },
                   ),
                 ],
               ),
@@ -554,84 +559,78 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildConnectionStats(V2RayProvider provider) {
-    // Get the V2RayService instance
+  String _countryCodeToFlag(String countryCode) {
+    final code = countryCode.trim().toUpperCase();
+    if (code.length != 2) {
+      return '';
+    }
+
+    final first = code.codeUnitAt(0);
+    final second = code.codeUnitAt(1);
+    if (first < 65 || first > 90 || second < 65 || second > 90) {
+      return '';
+    }
+
+    return String.fromCharCode(first + 127397) +
+        String.fromCharCode(second + 127397);
+  }
+
+  Widget _buildLocationBar(V2RayProvider provider) {
     final v2rayService = provider.v2rayService;
 
-    // Use StreamBuilder to update the UI when statistics change
     return StreamBuilder(
-      // Create a periodic stream to update the UI every 1 second for traffic and every 5 seconds for IP
       stream: Stream.periodic(const Duration(seconds: 1)),
       builder: (context, snapshot) {
-        // Refresh IP info every 5 seconds (when snapshot.data is multiple of 5)
         if (snapshot.hasData && snapshot.data! % 5 == 0) {
           if (v2rayService.activeConfig != null) {
-            // Fetch IP info without showing loading indicator
             v2rayService.fetchIpInfo().catchError((error) {
-              // Handle error silently
               debugPrint('Error refreshing IP info: $error');
             });
           }
         }
 
         final ipInfo = v2rayService.ipInfo;
+        final locationText = ipInfo == null
+            ? '...'
+            : '${ipInfo.country} - ${ipInfo.city}'.trim();
+        final flag = _countryCodeToFlag(ipInfo?.countryCode ?? '');
 
         return Consumer<WallpaperService>(
           builder: (context, wallpaperService, _) {
             final isGlassBackground = wallpaperService.isGlassBackgroundEnabled;
 
             return Container(
-              margin: const EdgeInsets.symmetric(horizontal: 20),
-              padding: const EdgeInsets.all(16),
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
               decoration: BoxDecoration(
                 color: isGlassBackground
                     ? AppTheme.cardDark.withOpacity(0.7)
                     : AppTheme.cardDark,
-                borderRadius: BorderRadius.circular(16),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                borderRadius: BorderRadius.circular(12),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    context.tr('home.connection_statistics'),
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
+                  if (flag.isNotEmpty) ...[
+                    Text(
+                      flag,
+                      style: const TextStyle(fontSize: 18),
                     ),
-                  ),
-                  const SizedBox(height: 16),
-                  _buildStatRow(
-                    Icons.timer,
-                    context.tr(TranslationKeys.homeConnectionTime),
-                    v2rayService.getFormattedConnectedTime(),
-                  ),
-                  const Divider(height: 24),
-
-                  // Total traffic usage - updated every second
-                  _buildTrafficRow(
-                    context.tr('home.traffic_usage'),
-                    v2rayService.getFormattedUpload(),
-                    v2rayService.getFormattedDownload(),
-                    v2rayService.getFormattedTotalTraffic(),
-                  ),
-                  const Divider(height: 24),
-                  // Show IP info without error messages
-                  _buildIpInfoRow(
-                    IpInfo(
-                      ip: ipInfo?.ip ?? '...',
-                      country: ipInfo?.country ?? '...',
-                      city: ipInfo?.city ?? '...',
-                      countryCode: ipInfo?.countryCode ?? '',
-                      success: true,
+                    const SizedBox(width: 6),
+                  ],
+                  const Icon(Icons.location_on,
+                      size: 16, color: AppTheme.textGrey),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      locationText,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    provider,
                   ),
                 ],
               ),
@@ -642,140 +641,4 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildIpInfoRow(IpInfo ipInfo, V2RayProvider provider) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.public, size: 18, color: AppTheme.textGrey),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                '${ipInfo.country} - ${ipInfo.city}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryBlue,
-                ),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(width: 8),
-            InkWell(
-              onTap: () => _shareV2RayLink(context),
-              borderRadius: BorderRadius.circular(12),
-              child: Padding(
-                padding: const EdgeInsets.all(4.0),
-                child: Icon(Icons.share, size: 18, color: AppTheme.primaryBlue),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        // Check Config button
-        SizedBox(
-          width: double.infinity,
-          child: ElevatedButton.icon(
-            onPressed: () => _checkConfig(provider),
-            icon: const Icon(Icons.check, size: 18),
-            label: Text(context.tr('home.check_config')),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primaryBlue,
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 12),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatRow(IconData icon, String label, String value) {
-    return Row(
-      children: [
-        Icon(icon, size: 18, color: AppTheme.textGrey),
-        const SizedBox(width: 12),
-        Text(label, style: const TextStyle(color: AppTheme.textGrey)),
-        const Spacer(),
-        Text(
-          value,
-          style: const TextStyle(
-            fontWeight: FontWeight.bold,
-            color: AppTheme.primaryBlue,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildTrafficRow(
-    String label,
-    String upload,
-    String download,
-    String total,
-  ) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.data_usage, size: 18, color: AppTheme.textGrey),
-            const SizedBox(width: 12),
-            Text(label, style: const TextStyle(color: AppTheme.textGrey)),
-            const Spacer(),
-            Text(
-              total,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primaryBlue,
-                fontSize: 16,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.only(left: 30),
-          child: Row(
-            children: [
-              Expanded(
-                child: Row(
-                  children: [
-                    Text(
-                      upload,
-                      style: const TextStyle(
-                        color: Colors.orange,
-                        fontSize: 12,
-                      ),
-                    ),
-                    const Text(
-                      ' ↑',
-                      style: TextStyle(color: Colors.orange, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-              Expanded(
-                child: Row(
-                  children: [
-                    Text(
-                      download,
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                    const Text(
-                      ' ↓',
-                      style: TextStyle(color: Colors.white, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
 }
