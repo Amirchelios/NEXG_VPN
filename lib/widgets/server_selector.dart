@@ -22,6 +22,7 @@ class _ServerSelectorState extends State<ServerSelector> {
   ServerScoreMode _scoreMode = ServerScoreMode.discover;
   bool _hasScores = false;
   bool _isRefreshing = false;
+  Map<String, ServerScore> _serverScores = {};
 
   @override
   void initState() {
@@ -37,6 +38,7 @@ class _ServerSelectorState extends State<ServerSelector> {
     if (!mounted) return;
     final hasScores = scores.isNotEmpty;
     setState(() {
+      _serverScores = scores;
       _hasScores = hasScores;
       _scoreMode = hasScores ? mode : ServerScoreMode.discover;
     });
@@ -54,6 +56,43 @@ class _ServerSelectorState extends State<ServerSelector> {
       _scoreMode = mode;
     });
     await ServerScoreStore.saveMode(mode);
+  }
+
+  String _countryCodeToFlag(String countryCode) {
+    final code = countryCode.trim().toUpperCase();
+    if (code.length != 2) {
+      return '';
+    }
+
+    final first = code.codeUnitAt(0);
+    final second = code.codeUnitAt(1);
+    if (first < 65 || first > 90 || second < 65 || second > 90) {
+      return '';
+    }
+
+    return String.fromCharCode(first + 127397) +
+        String.fromCharCode(second + 127397);
+  }
+
+  String _getScoredDisplayName(V2RayConfig config) {
+    final score = _serverScores[config.id];
+    if (score == null) {
+      return config.remark;
+    }
+    final flag = _countryCodeToFlag(score.countryCode);
+    final parts = <String>[];
+    if (flag.isNotEmpty) {
+      parts.add(flag);
+    }
+    if (score.city.isNotEmpty) {
+      parts.add(score.city);
+    } else if (score.country.isNotEmpty) {
+      parts.add(score.country);
+    } else {
+      parts.add(config.remark);
+    }
+    final label = parts.join(' ');
+    return '${label} • ${score.score}';
   }
 
   @override
@@ -192,7 +231,7 @@ class _ServerSelectorState extends State<ServerSelector> {
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
-                          selectedConfig.remark,
+                          _getScoredDisplayName(selectedConfig),
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(fontSize: 16),
                         ),

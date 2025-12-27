@@ -875,6 +875,43 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
     return configs.where((c) => !_serverScores.containsKey(c.id)).toList();
   }
 
+  String _countryCodeToFlag(String countryCode) {
+    final code = countryCode.trim().toUpperCase();
+    if (code.length != 2) {
+      return '';
+    }
+
+    final first = code.codeUnitAt(0);
+    final second = code.codeUnitAt(1);
+    if (first < 65 || first > 90 || second < 65 || second > 90) {
+      return '';
+    }
+
+    return String.fromCharCode(first + 127397) +
+        String.fromCharCode(second + 127397);
+  }
+
+  String _getScoredDisplayName(V2RayConfig config) {
+    final score = _serverScores[config.id];
+    if (score == null) {
+      return config.remark;
+    }
+    final flag = _countryCodeToFlag(score.countryCode);
+    final parts = <String>[];
+    if (flag.isNotEmpty) {
+      parts.add(flag);
+    }
+    if (score.city.isNotEmpty) {
+      parts.add(score.city);
+    } else if (score.country.isNotEmpty) {
+      parts.add(score.country);
+    } else {
+      parts.add(config.remark);
+    }
+    final label = parts.join(' ');
+    return '${label} • ${score.score}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<V2RayProvider>(context, listen: true);
@@ -1491,7 +1528,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
                                         children: [
                                           Expanded(
                                             child: Text(
-                                              config.remark,
+                                              _getScoredDisplayName(config),
                                               style: TextStyle(
                                                 fontSize: 16,
                                                 fontWeight: isSelected

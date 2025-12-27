@@ -989,6 +989,11 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         instagramOk: instagramOk,
       );
 
+      final ipInfo = await _v2rayService.fetchIpInfo();
+      final country = ipInfo.success ? ipInfo.country : '';
+      final city = ipInfo.success ? ipInfo.city : '';
+      final countryCode = ipInfo.success ? ipInfo.countryCode : '';
+
       await ServerScoreStore.removeBadServer(config.id);
       await ServerScoreStore.saveScore(
         ServerScore(
@@ -998,6 +1003,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           instagramOk: instagramOk,
           score: score,
           timestampMs: DateTime.now().millisecondsSinceEpoch,
+          country: country,
+          city: city,
+          countryCode: countryCode,
         ),
       );
     } catch (e) {

@@ -11,6 +11,9 @@ class ServerScore {
   final bool instagramOk;
   final int score;
   final int timestampMs;
+  final String country;
+  final String city;
+  final String countryCode;
 
   const ServerScore({
     required this.configId,
@@ -19,6 +22,9 @@ class ServerScore {
     required this.instagramOk,
     required this.score,
     required this.timestampMs,
+    required this.country,
+    required this.city,
+    required this.countryCode,
   });
 
   Map<String, dynamic> toJson() => {
@@ -28,6 +34,9 @@ class ServerScore {
         'instagramOk': instagramOk,
         'score': score,
         'timestampMs': timestampMs,
+        'country': country,
+        'city': city,
+        'countryCode': countryCode,
       };
 
   factory ServerScore.fromJson(Map<String, dynamic> json) {
@@ -39,6 +48,9 @@ class ServerScore {
       score: (json['score'] as num?)?.toInt() ?? 0,
       timestampMs: (json['timestampMs'] as num?)?.toInt() ??
           DateTime.now().millisecondsSinceEpoch,
+      country: json['country'] as String? ?? '',
+      city: json['city'] as String? ?? '',
+      countryCode: json['countryCode'] as String? ?? '',
     );
   }
 }
