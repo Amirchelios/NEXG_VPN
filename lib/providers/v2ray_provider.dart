@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_v2ray_client/flutter_v2ray.dart';
 import 'package:flutter/services.dart';
@@ -7,7 +6,6 @@ import '../models/v2ray_config.dart';
 import '../models/subscription.dart';
 import '../services/v2ray_service.dart';
 import '../services/server_service.dart';
-import '../utils/server_score_store.dart';
 
 class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   final V2RayService _v2rayService = V2RayService();
@@ -22,7 +20,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   bool _isLoadingServers = false;
   bool _isProxyMode = false;
   bool _isInitializing = true;
-  bool _isUpdatingSubscriptions = false;  // Track when updates are in progress
+  bool _isUpdatingSubscriptions = false; // Track when updates are in progress
 
   // Method channel for VPN control
   static const platform = MethodChannel('com.cloud.pira/vpn_control');
@@ -38,7 +36,8 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   String get errorMessage => _errorMessage;
   V2RayService get v2rayService => _v2rayService;
   bool get isProxyMode => _isProxyMode;
-  bool get isUpdatingSubscriptions => _isUpdatingSubscriptions;  // Getter for update state
+  bool get isUpdatingSubscriptions =>
+      _isUpdatingSubscriptions; // Getter for update state
 
   // Expose V2Ray status for real-time traffic monitoring
   V2RayStatus? get currentStatus => _v2rayService.currentStatus;
@@ -103,7 +102,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
       // Load subscriptions
       await loadSubscriptions();
-      debugPrint('Loaded ${_subscriptions.length} subscriptions during initialization');
+      debugPrint(
+        'Loaded ${_subscriptions.length} subscriptions during initialization',
+      );
 
       // Load proxy mode setting from SharedPreferences
       final prefs = await SharedPreferences.getInstance();
@@ -332,11 +333,13 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     _setLoading(true);
     try {
       _subscriptions = await _v2rayService.loadSubscriptions();
-      
+
       // Debug information
       debugPrint('Loaded ${_subscriptions.length} subscriptions');
       for (var sub in _subscriptions) {
-        debugPrint('  Subscription: ${sub.name} with ${sub.configIds.length} configs');
+        debugPrint(
+          '  Subscription: ${sub.name} with ${sub.configIds.length} configs',
+        );
       }
 
       // Create default subscription if no subscriptions exist
@@ -365,8 +368,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       for (var subscription in _subscriptions) {
         final configIds = subscription.configIds;
         final existingConfigIds = _configs.map((c) => c.id).toSet();
-        
-        debugPrint('Subscription "${subscription.name}" has ${configIds.length} config IDs, ${existingConfigIds.length} existing configs');
+
+        debugPrint(
+          'Subscription "${subscription.name}" has ${configIds.length} config IDs, ${existingConfigIds.length} existing configs',
+        );
 
         // Check if any config IDs in the subscription are missing from the configs list
         final missingConfigIds = configIds
@@ -388,7 +393,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             _subscriptions[index] = subscription.copyWith(
               configIds: updatedConfigIds,
             );
-            debugPrint('Updated subscription "${subscription.name}" to have ${updatedConfigIds.length} config IDs');
+            debugPrint(
+              'Updated subscription "${subscription.name}" to have ${updatedConfigIds.length} config IDs',
+            );
           }
         }
       }
@@ -404,7 +411,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<void> addConfig(V2RayConfig config) async {
     // Add config and display it immediately
     _configs.add(config);
-    debugPrint('Added config: ${config.remark} (${config.id}) - Total configs: ${_configs.length}');
+    debugPrint(
+      'Added config: ${config.remark} (${config.id}) - Total configs: ${_configs.length}',
+    );
 
     // Save the configuration immediately to display it
     await _v2rayService.saveConfigs(_configs);
@@ -508,9 +517,11 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       _configs.addAll(configs);
 
       final newConfigIds = configs.map((c) => c.id).toList();
-      
+
       // Debug information
-      debugPrint('Adding subscription "$name" with ${configs.length} configs and IDs: $newConfigIds');
+      debugPrint(
+        'Adding subscription "$name" with ${configs.length} configs and IDs: $newConfigIds',
+      );
 
       // Create subscription
       final subscription = Subscription(
@@ -526,7 +537,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       // Save both configs and subscription
       await _v2rayService.saveConfigs(_configs);
       await _v2rayService.saveSubscriptions(_subscriptions);
-      
+
       // Debug information
       debugPrint('Subscription "$name" added successfully');
 
@@ -670,7 +681,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     _setLoading(true);
     _errorMessage = '';
     _isLoadingServers = true;
-    _isUpdatingSubscriptions = true;  // Set update state
+    _isUpdatingSubscriptions = true; // Set update state
     notifyListeners();
 
     // Clear all ping cache before updating subscriptions
@@ -750,8 +761,8 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     } finally {
       _setLoading(false);
       _isLoadingServers = false;
-      _isUpdatingSubscriptions = false;  // Clear update state
-      notifyListeners();  // Notify listeners that update state has changed
+      _isUpdatingSubscriptions = false; // Clear update state
+      notifyListeners(); // Notify listeners that update state has changed
     }
   }
 
@@ -767,7 +778,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     notifyListeners();
   }
 
-  Future<void> connectToServer(V2RayConfig config, bool _isProxyMode) async {
+  Future<void> connectToServer(V2RayConfig config, bool isProxyMode) async {
     _isConnecting = true;
     _errorMessage = '';
     notifyListeners();
@@ -804,7 +815,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
           // Connect to server with timeout
           success = await _v2rayService
-              .connect(config, _isProxyMode)
+              .connect(config, isProxyMode)
               .timeout(
                 const Duration(seconds: 30), // Timeout for connection
                 onTimeout: () {
@@ -866,14 +877,13 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           for (int i = 0; i < _configs.length; i++) {
             if (_configs[i].id == config.id) {
               _configs[i].isConnected = true;
-              _configs[i].isProxyMode =
-                  _isProxyMode; // Update proxy mode status
+              _configs[i].isProxyMode = isProxyMode; // Update proxy mode status
             } else {
               _configs[i].isConnected = false;
             }
           }
           _selectedConfig = config;
-          _isProxyMode = _isProxyMode; // Update provider's proxy mode state
+          isProxyMode = isProxyMode; // Update provider's proxy mode state
 
           // Persist the changes with error handling
           try {
@@ -890,10 +900,6 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             debugPrint('Error resetting usage stats: $e');
             // Don't fail the connection for this
           }
-
-          Future(() async {
-            await _scoreConnectedServer(config);
-          });
 
           debugPrint('Successfully connected to ${config.remark}');
         } catch (e) {
@@ -934,51 +940,6 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     } finally {
       _isConnecting = false;
       notifyListeners();
-    }
-  }
-
-  Future<void> _scoreConnectedServer(V2RayConfig config) async {
-    try {
-      final existing = await ServerScoreStore.getScore(config.id);
-      if (existing != null) {
-        return;
-      }
-
-      int pingValue = -1;
-      try {
-        final ping = await _v2rayService
-            .getServerDelay(config)
-            .timeout(const Duration(seconds: 6), onTimeout: () => -1);
-        pingValue = ping ?? -1;
-      } catch (_) {
-        pingValue = -1;
-      }
-
-      final results = await _v2rayService.probeWebsites({
-        'youtube': Uri.parse('https://www.youtube.com'),
-        'instagram': Uri.parse('https://www.instagram.com'),
-      });
-
-      final youtubeOk = results['youtube'] == true;
-      final instagramOk = results['instagram'] == true;
-      final score = ServerScoreStore.calculateScore(
-        ping: pingValue,
-        youtubeOk: youtubeOk,
-        instagramOk: instagramOk,
-      );
-
-      await ServerScoreStore.saveScore(
-        ServerScore(
-          configId: config.id,
-          ping: pingValue,
-          youtubeOk: youtubeOk,
-          instagramOk: instagramOk,
-          score: score,
-          timestampMs: DateTime.now().millisecondsSinceEpoch,
-        ),
-      );
-    } catch (e) {
-      debugPrint('Error scoring server ${config.remark}: $e');
     }
   }
 

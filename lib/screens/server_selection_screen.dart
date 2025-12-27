@@ -10,7 +10,6 @@ import 'package:proxycloud/services/v2ray_service.dart';
 import 'package:proxycloud/theme/app_theme.dart';
 import 'package:proxycloud/utils/app_localizations.dart';
 import 'package:proxycloud/utils/auto_select_util.dart';
-import 'package:proxycloud/utils/server_score_store.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // Constants for shared preferences keys
@@ -23,12 +22,12 @@ class ServerSelectionScreen extends StatefulWidget {
   final Future<void> Function(V2RayConfig) onConfigSelected;
 
   const ServerSelectionScreen({
-    Key? key,
+    super.key,
     required this.configs,
     required this.selectedConfig,
     required this.isConnecting,
     required this.onConfigSelected,
-  }) : super(key: key);
+  });
 
   @override
   State<ServerSelectionScreen> createState() => _ServerSelectionScreenState();
@@ -41,10 +40,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
   final V2RayService _v2rayService = V2RayService();
   final StreamController<String> _autoConnectStatusStream =
       StreamController<String>.broadcast();
-  Map<String, ServerScore> _serverScores = {};
-  bool _hasScores = false;
-  ServerScoreMode _scoreMode = ServerScoreMode.discover;
-  
+
   // Add the missing _originalOrder field
   List<V2RayConfig> _originalOrder = [];
 
@@ -273,7 +269,6 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
     _selectedFilter = 'All';
     // Load saved pings when screen initializes
     _loadPingsFromStorage();
-    _loadScoreState();
   }
 
   @override
@@ -441,7 +436,6 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
       configsToPing = configsToPing
           .where((config) => config.id != widget.selectedConfig?.id)
           .toList();
-      configsToPing = _applyScoreModeFilter(configsToPing);
 
       // Process configs in larger batches for faster testing
       for (int i = 0; i < configsToPing.length; i += batchSize) {
@@ -470,7 +464,9 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
 
         // Very small delay between batches to avoid overwhelming the system
         if (mounted && i + batchSize < configsToPing.length) {
-          await Future.delayed(const Duration(milliseconds: 50)); // Reduced delay
+          await Future.delayed(
+            const Duration(milliseconds: 50),
+          ); // Reduced delay
         }
       }
 
@@ -524,58 +520,22 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
         }
       }
 
-      AutoSelectResult result;
-      if (_scoreMode == ServerScoreMode.scored) {
-        if (!_hasScores) {
-          result = AutoSelectResult(
-            errorMessage: context.tr(TranslationKeys.serverSelectionNoServers),
-          );
-        } else {
-          _autoConnectStatusStream.add('Using saved scores...');
-          final scoredConfigs = configs
-              .where((config) => _serverScores.containsKey(config.id))
-              .toList();
-          if (scoredConfigs.isEmpty) {
-            result = AutoSelectResult(
-              errorMessage: context.tr(
-                TranslationKeys.serverSelectionNoSuitableServer,
-              ),
-            );
-          } else {
-            scoredConfigs.sort((a, b) {
-              final scoreA = _serverScores[a.id]?.score ?? 0;
-              final scoreB = _serverScores[b.id]?.score ?? 0;
-              if (scoreA != scoreB) {
-                return scoreB.compareTo(scoreA);
-              }
-              final pingA = _serverScores[a.id]?.ping ?? 10000;
-              final pingB = _serverScores[b.id]?.ping ?? 10000;
-              return pingA.compareTo(pingB);
-            });
-            result = AutoSelectResult(
-              selectedConfig: scoredConfigs.first,
-              bestPing: _serverScores[scoredConfigs.first.id]?.ping,
-            );
-          }
-        }
-      } else {
-        // Run auto-select algorithm with cancellation support
-        result = await AutoSelectUtil.runAutoSelect(
-          configs,
-          _v2rayService,
-          onStatusUpdate: (message) {
-            // Update status
-            if (mounted) {
-              try {
-                _autoConnectStatusStream.add(message);
-              } catch (e) {
-                debugPrint('Error updating status stream: $e');
-              }
+      // Run auto-select algorithm with cancellation support
+      final result = await AutoSelectUtil.runAutoSelect(
+        configs,
+        _v2rayService,
+        onStatusUpdate: (message) {
+          // Update status
+          if (mounted) {
+            try {
+              _autoConnectStatusStream.add(message);
+            } catch (e) {
+              debugPrint('Error updating status stream: $e');
             }
-          },
-          cancellationToken: _autoSelectCancellationToken,
-        );
-      }
+          }
+        },
+        cancellationToken: _autoSelectCancellationToken,
+      );
 
       // Check if operation was cancelled
       if (result.errorMessage == 'Auto-select cancelled') {
@@ -754,10 +714,9 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
       debugPrint('Using ping batch size: $batchSize');
 
       // Filter configs to only include non-connected configs
-      var configsToPing = widget.configs
+      final configsToPing = widget.configs
           .where((config) => config.id != widget.selectedConfig?.id)
           .toList();
-      configsToPing = _applyScoreModeFilter(configsToPing);
 
       // Process configs in batches
       for (int i = 0; i < configsToPing.length; i += batchSize) {
@@ -807,38 +766,6 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
 
   void _cancelAllPingTasks() {
     _cancelPingTasks.updateAll((key, value) => true);
-  }
-
-  Future<void> _loadScoreState() async {
-    final scores = await ServerScoreStore.loadScores();
-    final mode = await ServerScoreStore.loadMode();
-    if (!mounted) return;
-    final hasScores = scores.isNotEmpty;
-    setState(() {
-      _serverScores = scores;
-      _hasScores = hasScores;
-      _scoreMode = hasScores ? mode : ServerScoreMode.discover;
-    });
-    if (!hasScores && mode == ServerScoreMode.scored) {
-      await ServerScoreStore.saveMode(ServerScoreMode.discover);
-    }
-  }
-
-  Future<void> _setScoreMode(ServerScoreMode mode) async {
-    if (!_hasScores && mode == ServerScoreMode.scored) {
-      return;
-    }
-    setState(() {
-      _scoreMode = mode;
-    });
-    await ServerScoreStore.saveMode(mode);
-  }
-
-  List<V2RayConfig> _applyScoreModeFilter(List<V2RayConfig> configs) {
-    if (_scoreMode == ServerScoreMode.scored) {
-      return configs.where((c) => _serverScores.containsKey(c.id)).toList();
-    }
-    return configs.where((c) => !_serverScores.containsKey(c.id)).toList();
   }
 
   @override
@@ -913,23 +840,25 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
       final allSubscriptionConfigIds = subscriptions
           .expand((sub) => sub.configIds)
           .toSet();
-      
+
       // Debug print to see what's happening
-      debugPrint('Local tab filtering: Total configs: ${configs.length}, Subscription config IDs: ${allSubscriptionConfigIds.length}');
+      debugPrint(
+        'Local tab filtering: Total configs: ${configs.length}, Subscription config IDs: ${allSubscriptionConfigIds.length}',
+      );
       debugPrint('Subscription config IDs: $allSubscriptionConfigIds');
-      
-      filteredConfigs = configs
-          .where((config) {
-            final isLocal = !allSubscriptionConfigIds.contains(config.id);
-            if (!isLocal) {
-              debugPrint('Config ${config.remark} (${config.id}) is NOT local (belongs to subscription)');
-            } else {
-              debugPrint('Config ${config.remark} (${config.id}) IS local');
-            }
-            return isLocal;
-          })
-          .toList();
-      
+
+      filteredConfigs = configs.where((config) {
+        final isLocal = !allSubscriptionConfigIds.contains(config.id);
+        if (!isLocal) {
+          debugPrint(
+            'Config ${config.remark} (${config.id}) is NOT local (belongs to subscription)',
+          );
+        } else {
+          debugPrint('Config ${config.remark} (${config.id}) IS local');
+        }
+        return isLocal;
+      }).toList();
+
       debugPrint('Local tab showing ${filteredConfigs.length} configs');
     } else {
       final subscription = subscriptions.firstWhere(
@@ -945,10 +874,10 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
       filteredConfigs = configs
           .where((config) => subscription.configIds.contains(config.id))
           .toList();
-      debugPrint('Subscription tab "${_selectedFilter}": showing ${filteredConfigs.length} configs');
+      debugPrint(
+        'Subscription tab "$_selectedFilter": showing ${filteredConfigs.length} configs',
+      );
     }
-
-    filteredConfigs = _applyScoreModeFilter(filteredConfigs);
 
     // Store original order when not sorting
     if (!_sortByPing) {
@@ -1001,82 +930,89 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
               builder: (context, provider, _) {
                 return IconButton(
                   icon: const Icon(Icons.refresh),
-                  onPressed: provider.isUpdatingSubscriptions ? null : () async {
-                    try {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            context.tr(
-                              TranslationKeys.serverSelectionUpdatingServers,
-                            ),
-                          ),
-                          duration: const Duration(seconds: 1),
-                        ),
-                      );
-
-                      // Clear saved pings when updating subscriptions
-                      await _clearSavedPings();
-                      _pings.clear();
-                      if (mounted) {
-                        setState(() {});
-                      }
-
-                      if (_selectedFilter == 'All') {
-                        await provider.updateAllSubscriptions();
-                      } else if (_selectedFilter != 'Default') {
-                        final subscription = subscriptions.firstWhere(
-                          (sub) => sub.name == _selectedFilter,
-                          orElse: () => Subscription(
-                            id: '',
-                            name: '',
-                            url: '',
-                            lastUpdated: DateTime.now(),
-                            configIds: [],
-                          ),
-                        );
-                        if (subscription.id.isNotEmpty) {
-                          await provider.updateSubscription(subscription);
-                        }
-                      }
-
-                      setState(() {});
-                      // Ping all servers in current tab after refresh
-                      await _pingAllServersInBatches();
-
-                      if (provider.errorMessage.isNotEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(provider.errorMessage),
-                            backgroundColor: Colors.red.shade700,
-                            duration: const Duration(seconds: 3),
-                          ),
-                        );
-                        provider.clearError();
-                      } else {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text(
-                              context.tr(
-                                TranslationKeys.serverSelectionServersUpdated,
+                  onPressed: provider.isUpdatingSubscriptions
+                      ? null
+                      : () async {
+                          try {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  context.tr(
+                                    TranslationKeys
+                                        .serverSelectionUpdatingServers,
+                                  ),
+                                ),
+                                duration: const Duration(seconds: 1),
                               ),
-                            ),
-                          ),
-                        );
-                      }
-                    } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(
-                            context.tr(
-                              TranslationKeys.serverSelectionErrorUpdating,
-                              parameters: {'error': e.toString()},
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-                  },
-                  tooltip: context.tr(TranslationKeys.serverSelectionUpdateServers),
+                            );
+
+                            // Clear saved pings when updating subscriptions
+                            await _clearSavedPings();
+                            _pings.clear();
+                            if (mounted) {
+                              setState(() {});
+                            }
+
+                            if (_selectedFilter == 'All') {
+                              await provider.updateAllSubscriptions();
+                            } else if (_selectedFilter != 'Default') {
+                              final subscription = subscriptions.firstWhere(
+                                (sub) => sub.name == _selectedFilter,
+                                orElse: () => Subscription(
+                                  id: '',
+                                  name: '',
+                                  url: '',
+                                  lastUpdated: DateTime.now(),
+                                  configIds: [],
+                                ),
+                              );
+                              if (subscription.id.isNotEmpty) {
+                                await provider.updateSubscription(subscription);
+                              }
+                            }
+
+                            setState(() {});
+                            // Ping all servers in current tab after refresh
+                            await _pingAllServersInBatches();
+
+                            if (provider.errorMessage.isNotEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(provider.errorMessage),
+                                  backgroundColor: Colors.red.shade700,
+                                  duration: const Duration(seconds: 3),
+                                ),
+                              );
+                              provider.clearError();
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    context.tr(
+                                      TranslationKeys
+                                          .serverSelectionServersUpdated,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            }
+                          } catch (e) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  context.tr(
+                                    TranslationKeys
+                                        .serverSelectionErrorUpdating,
+                                    parameters: {'error': e.toString()},
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+                        },
+                  tooltip: context.tr(
+                    TranslationKeys.serverSelectionUpdateServers,
+                  ),
                 );
               },
             ),
@@ -1084,56 +1020,6 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
       ),
       body: Column(
         children: [
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: AppTheme.cardDark,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: ToggleButtons(
-                    isSelected: [
-                      _scoreMode == ServerScoreMode.discover,
-                      _scoreMode == ServerScoreMode.scored,
-                    ],
-                    onPressed: (index) async {
-                      if (index == 1 && !_hasScores) {
-                        return;
-                      }
-                      final nextMode = index == 0
-                          ? ServerScoreMode.discover
-                          : ServerScoreMode.scored;
-                      await _setScoreMode(nextMode);
-                    },
-                    borderRadius: BorderRadius.circular(8),
-                    color: Colors.grey,
-                    selectedColor: Colors.white,
-                    fillColor: AppTheme.primaryGreen,
-                    constraints: const BoxConstraints(
-                      minHeight: 36,
-                      minWidth: 110,
-                    ),
-                    children: [
-                      const Text('New'),
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text('Scored'),
-                          if (!_hasScores) ...[
-                            const SizedBox(width: 6),
-                            const Icon(Icons.lock, size: 14),
-                          ],
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
           Container(
             height: 50,
             margin: const EdgeInsets.symmetric(vertical: 8),
@@ -1575,8 +1461,9 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
                                               vertical: 2,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: Colors.blueGrey
-                                                  .withValues(alpha: 0.2),
+                                              color: Colors.blueGrey.withValues(
+                                                alpha: 0.2,
+                                              ),
                                               borderRadius:
                                                   BorderRadius.circular(4),
                                             ),
