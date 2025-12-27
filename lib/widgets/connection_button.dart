@@ -6,6 +6,7 @@ import '../providers/v2ray_provider.dart';
 import '../theme/app_theme.dart';
 import '../utils/auto_select_util.dart';
 import '../utils/app_localizations.dart';
+import '../utils/server_score_store.dart';
 
 class ConnectionButton extends StatefulWidget {
   const ConnectionButton({super.key});
@@ -44,6 +45,33 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     BuildContext context,
     V2RayProvider provider,
   ) async {
+    final mode = await ServerScoreStore.loadMode();
+    final scores = await ServerScoreStore.loadScores();
+    final badIds = await ServerScoreStore.loadBadServerIds();
+    final scoredIds = scores.keys.toSet();
+    final configs = mode == ServerScoreMode.scored
+        ? provider.configs
+            .where((c) => scoredIds.contains(c.id))
+            .where((c) => !badIds.contains(c.id))
+            .toList()
+        : provider.configs
+            .where((c) => !scoredIds.contains(c.id))
+            .where((c) => !badIds.contains(c.id))
+            .toList();
+
+    if (configs.isEmpty) {
+      final message = mode == ServerScoreMode.scored
+          ? 'No scored servers available'
+          : context.tr(TranslationKeys.serverSelectorNoServers);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
     // Create cancellation token for this auto-select operation
     _autoSelectCancellationToken = AutoSelectCancellationToken();
 
@@ -91,16 +119,35 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     );
 
     try {
-      // Run auto-select algorithm with cancellation support and status updates
-      final result = await AutoSelectUtil.runAutoSelect(
-        provider.configs,
-        provider.v2rayService,
-        onStatusUpdate: (message) {
-          // Update status in the dialog
-          _autoSelectStatusStream.add(message);
-        },
-        cancellationToken: _autoSelectCancellationToken,
-      );
+      AutoSelectResult result;
+      if (mode == ServerScoreMode.scored) {
+        _autoSelectStatusStream.add('Using saved scores...');
+        configs.sort((a, b) {
+          final scoreA = scores[a.id]?.score ?? 0;
+          final scoreB = scores[b.id]?.score ?? 0;
+          if (scoreA != scoreB) {
+            return scoreB.compareTo(scoreA);
+          }
+          final pingA = scores[a.id]?.ping ?? 10000;
+          final pingB = scores[b.id]?.ping ?? 10000;
+          return pingA.compareTo(pingB);
+        });
+        result = AutoSelectResult(
+          selectedConfig: configs.first,
+          bestPing: scores[configs.first.id]?.ping,
+        );
+      } else {
+        // Run auto-select algorithm with cancellation support and status updates
+        result = await AutoSelectUtil.runAutoSelect(
+          configs,
+          provider.v2rayService,
+          onStatusUpdate: (message) {
+            // Update status in the dialog
+            _autoSelectStatusStream.add(message);
+          },
+          cancellationToken: _autoSelectCancellationToken,
+        );
+      }
 
       // Check if operation was cancelled
       if (result.errorMessage == 'Auto-select cancelled') {
@@ -199,6 +246,19 @@ class _ConnectionButtonState extends State<ConnectionButton> {
               if (isConnected) {
                 await provider.disconnect();
               } else if (selectedConfig != null) {
+                final mode = await ServerScoreStore.loadMode();
+                final scores = await ServerScoreStore.loadScores();
+                final badIds = await ServerScoreStore.loadBadServerIds();
+                final scoredIds = scores.keys.toSet();
+                final isBad = badIds.contains(selectedConfig.id);
+                final isScored = scoredIds.contains(selectedConfig.id);
+                final useSelected =
+                    mode == ServerScoreMode.scored ? isScored : !isScored;
+
+                if (isBad || !useSelected) {
+                  await _runAutoSelectAndConnect(context, provider);
+                  return;
+                }
                 await provider.connectToServer(
                   selectedConfig,
                   provider.isProxyMode,

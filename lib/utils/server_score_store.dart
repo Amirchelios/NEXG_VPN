@@ -46,6 +46,7 @@ class ServerScore {
 class ServerScoreStore {
   static const String _scoresKey = 'server_scores';
   static const String _modeKey = 'server_score_mode';
+  static const String _badKey = 'bad_servers';
 
   static int calculateScore({
     required int ping,
@@ -91,6 +92,19 @@ class ServerScoreStore {
     await prefs.setString(_scoresKey, jsonString);
   }
 
+  static Future<void> removeScore(String configId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final scores = await loadScores();
+    if (!scores.containsKey(configId)) {
+      return;
+    }
+    scores.remove(configId);
+    final jsonString = jsonEncode(
+      scores.map((key, value) => MapEntry(key, value.toJson())),
+    );
+    await prefs.setString(_scoresKey, jsonString);
+  }
+
   static Future<bool> hasScores() async {
     final scores = await loadScores();
     return scores.isNotEmpty;
@@ -111,5 +125,35 @@ class ServerScoreStore {
       _modeKey,
       mode == ServerScoreMode.scored ? 'scored' : 'discover',
     );
+  }
+
+  static Future<Set<String>> loadBadServerIds() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonString = prefs.getString(_badKey);
+    if (jsonString == null || jsonString.isEmpty) {
+      return {};
+    }
+    try {
+      final List<dynamic> data = jsonDecode(jsonString);
+      return data.map((e) => e.toString()).toSet();
+    } catch (_) {
+      return {};
+    }
+  }
+
+  static Future<void> addBadServer(String configId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final badIds = await loadBadServerIds();
+    badIds.add(configId);
+    await prefs.setString(_badKey, jsonEncode(badIds.toList()));
+  }
+
+  static Future<void> removeBadServer(String configId) async {
+    final prefs = await SharedPreferences.getInstance();
+    final badIds = await loadBadServerIds();
+    if (!badIds.remove(configId)) {
+      return;
+    }
+    await prefs.setString(_badKey, jsonEncode(badIds.toList()));
   }
 }

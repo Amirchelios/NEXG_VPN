@@ -6,6 +6,7 @@ import '../models/v2ray_config.dart';
 import '../models/subscription.dart';
 import '../services/v2ray_service.dart';
 import '../services/server_service.dart';
+import '../utils/server_score_store.dart';
 
 class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   final V2RayService _v2rayService = V2RayService();
@@ -901,6 +902,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             // Don't fail the connection for this
           }
 
+          Future(() async {
+            await _scoreConnectedServer(config);
+          });
+
           debugPrint('Successfully connected to ${config.remark}');
         } catch (e) {
           debugPrint('Error in post-connection setup: $e');
@@ -940,6 +945,60 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     } finally {
       _isConnecting = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> _scoreConnectedServer(V2RayConfig config) async {
+    try {
+      final existing = await ServerScoreStore.getScore(config.id);
+      if (existing != null) {
+        return;
+      }
+
+      int pingValue = -1;
+      try {
+        final ping = await _v2rayService
+            .getServerDelay(config)
+            .timeout(const Duration(seconds: 6), onTimeout: () => -1);
+        pingValue = ping ?? -1;
+      } catch (_) {
+        pingValue = -1;
+      }
+
+      final results = await _v2rayService.probeWebsites({
+        'youtube': Uri.parse('https://www.youtube.com'),
+        'instagram': Uri.parse('https://www.instagram.com'),
+      });
+
+      final youtubeOk = results['youtube'] == true;
+      final instagramOk = results['instagram'] == true;
+      final isHealthy = pingValue > 0 && youtubeOk && instagramOk;
+
+      if (!isHealthy) {
+        await ServerScoreStore.addBadServer(config.id);
+        await ServerScoreStore.removeScore(config.id);
+        return;
+      }
+
+      final score = ServerScoreStore.calculateScore(
+        ping: pingValue,
+        youtubeOk: youtubeOk,
+        instagramOk: instagramOk,
+      );
+
+      await ServerScoreStore.removeBadServer(config.id);
+      await ServerScoreStore.saveScore(
+        ServerScore(
+          configId: config.id,
+          ping: pingValue,
+          youtubeOk: youtubeOk,
+          instagramOk: instagramOk,
+          score: score,
+          timestampMs: DateTime.now().millisecondsSinceEpoch,
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error scoring server ${config.remark}: $e');
     }
   }
 

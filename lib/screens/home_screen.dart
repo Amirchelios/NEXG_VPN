@@ -37,7 +37,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _onProviderChanged() {
-    // Ping functionality removed
   }
 
   @override
@@ -45,6 +44,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _urlController.dispose();
     super.dispose();
   }
+
 
   // Share V2Ray link to clipboard
   void _shareV2RayLink(BuildContext context) async {

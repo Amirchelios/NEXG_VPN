@@ -7,15 +7,62 @@ import '../utils/app_localizations.dart';
 import '../theme/app_theme.dart';
 import '../screens/server_selection_screen.dart';
 import '../services/wallpaper_service.dart';
+import '../utils/server_score_store.dart';
+import 'split_mode_button.dart';
 import 'error_snackbar.dart';
 
-class ServerSelector extends StatelessWidget {
+class ServerSelector extends StatefulWidget {
   const ServerSelector({super.key});
+
+  @override
+  State<ServerSelector> createState() => _ServerSelectorState();
+}
+
+class _ServerSelectorState extends State<ServerSelector> {
+  ServerScoreMode _scoreMode = ServerScoreMode.discover;
+  bool _hasScores = false;
+  bool _isRefreshing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshScoreState();
+  }
+
+  Future<void> _refreshScoreState() async {
+    if (_isRefreshing) return;
+    _isRefreshing = true;
+    final scores = await ServerScoreStore.loadScores();
+    final mode = await ServerScoreStore.loadMode();
+    if (!mounted) return;
+    final hasScores = scores.isNotEmpty;
+    setState(() {
+      _hasScores = hasScores;
+      _scoreMode = hasScores ? mode : ServerScoreMode.discover;
+    });
+    if (!hasScores && mode == ServerScoreMode.scored) {
+      await ServerScoreStore.saveMode(ServerScoreMode.discover);
+    }
+    _isRefreshing = false;
+  }
+
+  Future<void> _setScoreMode(ServerScoreMode mode) async {
+    if (!_hasScores && mode == ServerScoreMode.scored) {
+      return;
+    }
+    setState(() {
+      _scoreMode = mode;
+    });
+    await ServerScoreStore.saveMode(mode);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Consumer3<V2RayProvider, LanguageProvider, WallpaperService>(
       builder: (context, provider, languageProvider, wallpaperService, _) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _refreshScoreState();
+        });
         return Directionality(
           textDirection: languageProvider.textDirection,
           child: _buildServerSelector(context, provider, wallpaperService),
@@ -65,6 +112,12 @@ class ServerSelector extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 12),
+            SplitModeButton(
+              mode: _scoreMode,
+              scoredEnabled: _hasScores,
+              onChanged: _setScoreMode,
             ),
             const SizedBox(height: 12),
             GestureDetector(
