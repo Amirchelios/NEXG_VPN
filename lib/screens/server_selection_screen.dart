@@ -344,6 +344,13 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
           }
         });
 
+        if (ping == null || ping <= 0) {
+          await ServerScoreStore.addBadServer(config.id);
+          if (mounted) {
+            await _loadScoreState();
+          }
+        }
+
         // Save pings to storage after each ping operation
         await _savePingsToStorage();
       }
@@ -382,9 +389,20 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
               return -1; // Return -1 on timeout
             },
           );
-      return delay ?? -1; // Handle null case by returning -1
+      final pingValue = delay ?? -1; // Handle null case by returning -1
+      if (pingValue <= 0) {
+        await ServerScoreStore.addBadServer(config.id);
+        if (mounted) {
+          await _loadScoreState();
+        }
+      }
+      return pingValue;
     } catch (e) {
       debugPrint('Error pinging server ${config.remark}: $e');
+      await ServerScoreStore.addBadServer(config.id);
+      if (mounted) {
+        await _loadScoreState();
+      }
       return -1; // Return -1 on error
     }
   }

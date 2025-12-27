@@ -6,6 +6,7 @@ import '../models/v2ray_config.dart';
 import '../models/subscription.dart';
 import '../services/v2ray_service.dart';
 import '../services/server_service.dart';
+import '../utils/auto_select_util.dart';
 import '../utils/server_score_store.dart';
 
 class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
@@ -22,6 +23,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   bool _isProxyMode = false;
   bool _isInitializing = true;
   bool _isUpdatingSubscriptions = false; // Track when updates are in progress
+  bool _isAutoRecovering = false;
 
   // Method channel for VPN control
   static const platform = MethodChannel('com.cloud.pira/vpn_control');
@@ -977,6 +979,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       if (!isHealthy) {
         await ServerScoreStore.addBadServer(config.id);
         await ServerScoreStore.removeScore(config.id);
+        await _autoRecoverFromBadServer(config);
         return;
       }
 
@@ -999,6 +1002,66 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       );
     } catch (e) {
       debugPrint('Error scoring server ${config.remark}: $e');
+    }
+  }
+
+  Future<void> _autoRecoverFromBadServer(V2RayConfig config) async {
+    if (_isAutoRecovering) {
+      return;
+    }
+    if (_v2rayService.activeConfig?.id != config.id) {
+      return;
+    }
+    _isAutoRecovering = true;
+    try {
+      var waitCycles = 0;
+      while (_isConnecting && waitCycles < 10) {
+        await Future.delayed(const Duration(milliseconds: 200));
+        waitCycles++;
+      }
+      await disconnect();
+
+      final mode = await ServerScoreStore.loadMode();
+      final scores = await ServerScoreStore.loadScores();
+      final badIds = await ServerScoreStore.loadBadServerIds();
+      final scoredIds = scores.keys.toSet();
+
+      var candidates = mode == ServerScoreMode.scored
+          ? _configs
+              .where((c) => scoredIds.contains(c.id))
+              .where((c) => !badIds.contains(c.id))
+              .where((c) => c.id != config.id)
+              .toList()
+          : _configs
+              .where((c) => !scoredIds.contains(c.id))
+              .where((c) => !badIds.contains(c.id))
+              .where((c) => c.id != config.id)
+              .toList();
+
+      if (candidates.isEmpty) {
+        candidates = _configs
+            .where((c) => !badIds.contains(c.id))
+            .where((c) => c.id != config.id)
+            .toList();
+      }
+
+      if (candidates.isEmpty) {
+        return;
+      }
+
+      final result = await AutoSelectUtil.runAutoSelect(
+        candidates,
+        _v2rayService,
+      );
+
+      if (result.selectedConfig != null) {
+        await selectConfig(result.selectedConfig!);
+        await connectToServer(result.selectedConfig!, _isProxyMode);
+      }
+    } catch (e) {
+      debugPrint('Auto-recover failed for ${config.remark}: $e');
+    } finally {
+      _isAutoRecovering = false;
     }
   }
 
