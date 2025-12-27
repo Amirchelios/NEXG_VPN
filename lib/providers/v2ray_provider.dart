@@ -269,7 +269,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<void> loadConfigs() async {
     _setLoading(true);
     try {
-      _configs = await _v2rayService.loadConfigs();
+      _configs = _filterOutShadowSocks(await _v2rayService.loadConfigs());
       notifyListeners();
     } catch (e) {
       _setError('Failed to load configurations: $e');
@@ -285,7 +285,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
     try {
       // Fetch servers from service using the provided custom URL
-      final servers = await _serverService.fetchServers(customUrl: customUrl);
+      final servers = _filterOutShadowSocks(
+        await _serverService.fetchServers(customUrl: customUrl),
+      );
 
       if (servers.isNotEmpty) {
         // Get all subscription config IDs to preserve them
@@ -319,12 +321,12 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         // Server delay functionality removed as requested
       } else {
         // If no servers found online, try to load from local storage
-        _configs = await _v2rayService.loadConfigs();
+        _configs = _filterOutShadowSocks(await _v2rayService.loadConfigs());
       }
     } catch (e) {
       _setError('Failed to fetch servers: $e');
       // Try to load from local storage as fallback
-      _configs = await _v2rayService.loadConfigs();
+      _configs = _filterOutShadowSocks(await _v2rayService.loadConfigs());
       notifyListeners();
     } finally {
       _isLoadingServers = false;
@@ -362,7 +364,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
       // Ensure configs are loaded and match subscription config IDs
       if (_configs.isEmpty) {
-        _configs = await _v2rayService.loadConfigs();
+        _configs = _filterOutShadowSocks(await _v2rayService.loadConfigs());
         debugPrint('Loaded ${_configs.length} configs');
       }
 
@@ -413,6 +415,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> addConfig(V2RayConfig config) async {
     // Add config and display it immediately
+    if (_isShadowSocks(config)) {
+      return;
+    }
     _configs.add(config);
     debugPrint(
       'Added config: ${config.remark} (${config.id}) - Total configs: ${_configs.length}',
@@ -476,7 +481,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<List<V2RayConfig>> importConfigsFromText(String configText) async {
     try {
       // Parse multiple configurations from text (similar to subscription parsing)
-      final configs = await _v2rayService.parseSubscriptionContent(configText);
+      final configs = _filterOutShadowSocks(
+        await _v2rayService.parseSubscriptionContent(configText),
+      );
 
       if (configs.isEmpty) {
         throw Exception('No valid configurations found');
@@ -510,7 +517,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     _setLoading(true);
     _errorMessage = '';
     try {
-      final configs = await _v2rayService.parseSubscriptionUrl(url);
+      final configs = _filterOutShadowSocks(
+        await _v2rayService.parseSubscriptionUrl(url),
+      );
       if (configs.isEmpty) {
         _setError('No valid configurations found in subscription');
         return;
@@ -578,8 +587,8 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
     try {
       // NEW: Force fresh fetch by bypassing any cache mechanisms
-      final configs = await _v2rayService.parseSubscriptionUrl(
-        subscription.url,
+      final configs = _filterOutShadowSocks(
+        await _v2rayService.parseSubscriptionUrl(subscription.url),
       );
       if (configs.isEmpty) {
         _setError('No valid configurations found in subscription');
@@ -705,8 +714,8 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           if (subscription.url.isEmpty) continue;
 
           // NEW: Force fresh fetch by bypassing any cache mechanisms
-          final configs = await _v2rayService.parseSubscriptionUrl(
-            subscription.url,
+          final configs = _filterOutShadowSocks(
+            await _v2rayService.parseSubscriptionUrl(subscription.url),
           );
 
           // Remove old configs for this subscription (if any exist)
@@ -1263,9 +1272,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     _errorMessage = '';
     try {
       // Add configs and display them immediately
-      _configs.addAll(configs);
+      final filteredConfigs = _filterOutShadowSocks(configs);
+      _configs.addAll(filteredConfigs);
 
-      final newConfigIds = configs.map((c) => c.id).toList();
+      final newConfigIds = filteredConfigs.map((c) => c.id).toList();
 
       // Create subscription with a special indicator for file-based subscriptions
       final subscription = Subscription(
@@ -1299,5 +1309,14 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     } finally {
       _setLoading(false);
     }
+  }
+
+  List<V2RayConfig> _filterOutShadowSocks(List<V2RayConfig> configs) {
+    return configs.where((config) => !_isShadowSocks(config)).toList();
+  }
+
+  bool _isShadowSocks(V2RayConfig config) {
+    final type = config.configType.toLowerCase();
+    return type == 'shadowsocks' || type == 'ss';
   }
 }
