@@ -8,7 +8,7 @@ import '../utils/auto_select_util.dart';
 import '../utils/app_localizations.dart';
 
 class ConnectionButton extends StatefulWidget {
-  const ConnectionButton({Key? key}) : super(key: key);
+  const ConnectionButton({super.key});
 
   @override
   State<ConnectionButton> createState() => _ConnectionButtonState();

@@ -1039,6 +1039,27 @@ class V2RayService extends ChangeNotifier {
     return 'Unknown';
   }
 
+  Future<Map<String, bool>> probeWebsites(Map<String, Uri> targets) async {
+    final results = <String, bool>{};
+    final futures = targets.entries.map((entry) async {
+      try {
+        final response = await http
+            .get(entry.value)
+            .timeout(const Duration(seconds: 6));
+        final ok = response.statusCode >= 200 && response.statusCode < 400;
+        return MapEntry(entry.key, ok);
+      } catch (_) {
+        return MapEntry(entry.key, false);
+      }
+    }).toList();
+
+    final entries = await Future.wait(futures);
+    for (final entry in entries) {
+      results[entry.key] = entry.value;
+    }
+    return results;
+  }
+
   /// Test connectivity using V2Ray's built-in method
   Future<Map<String, int?>> testConnectivity() async {
     try {

@@ -6,7 +6,7 @@ import '../theme/app_theme.dart';
 import '../services/wallpaper_service.dart';
 
 class ConnectionStatus extends StatelessWidget {
-  const ConnectionStatus({Key? key}) : super(key: key);
+  const ConnectionStatus({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -153,7 +153,10 @@ class ConnectionStatus extends StatelessWidget {
       ];
     }
     if (isConnected) {
-      return [AppTheme.connectedGreen, AppTheme.connectedGreen.withValues(alpha: 0.8)];
+      return [
+        AppTheme.connectedGreen,
+        AppTheme.connectedGreen.withValues(alpha: 0.8),
+      ];
     }
     return [
       AppTheme.disconnectedRed,

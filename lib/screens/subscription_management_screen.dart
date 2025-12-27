@@ -9,7 +9,7 @@ import '../widgets/error_snackbar.dart';
 import '../utils/app_localizations.dart';
 
 class SubscriptionManagementScreen extends StatefulWidget {
-  const SubscriptionManagementScreen({Key? key}) : super(key: key);
+  const SubscriptionManagementScreen({super.key});
 
   @override
   State<SubscriptionManagementScreen> createState() =>
@@ -543,7 +543,9 @@ class _SubscriptionManagementScreenState
             builder: (context, provider, _) {
               return IconButton(
                 icon: const Icon(Icons.refresh_rounded),
-                onPressed: provider.isUpdatingSubscriptions ? null : () => _updateAllSubscriptions(context),
+                onPressed: provider.isUpdatingSubscriptions
+                    ? null
+                    : () => _updateAllSubscriptions(context),
                 tooltip: context.tr(
                   TranslationKeys.subscriptionManagementUpdateAll,
                 ),
