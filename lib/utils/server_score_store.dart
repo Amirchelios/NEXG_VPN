@@ -168,4 +168,14 @@ class ServerScoreStore {
     }
     await prefs.setString(_badKey, jsonEncode(badIds.toList()));
   }
+
+  static Future<void> clearScores() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_scoresKey);
+  }
+
+  static Future<void> clearBadServers() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_badKey);
+  }
 }

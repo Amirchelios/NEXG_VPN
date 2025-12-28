@@ -587,10 +587,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
     try {
       // NEW: Force fresh fetch by bypassing any cache mechanisms
-      final configs = _filterOutShadowSocks(
+      final parsedConfigs = _filterOutShadowSocks(
         await _v2rayService.parseSubscriptionUrl(subscription.url),
       );
-      if (configs.isEmpty) {
+      if (parsedConfigs.isEmpty) {
         _setError('No valid configurations found in subscription');
         _isLoadingServers = false;
         notifyListeners();
@@ -601,6 +601,11 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       for (var configId in subscription.configIds) {
         _v2rayService.clearPingCache(configId: configId);
       }
+
+      final existingConfigs = _configs
+          .where((c) => subscription.configIds.contains(c.id))
+          .toList();
+      final configs = _preserveConfigIds(existingConfigs, parsedConfigs);
 
       // Remove old configs
       _configs.removeWhere((c) => subscription.configIds.contains(c.id));
@@ -714,9 +719,14 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           if (subscription.url.isEmpty) continue;
 
           // NEW: Force fresh fetch by bypassing any cache mechanisms
-          final configs = _filterOutShadowSocks(
+          final parsedConfigs = _filterOutShadowSocks(
             await _v2rayService.parseSubscriptionUrl(subscription.url),
           );
+
+          final existingConfigs = _configs
+              .where((c) => subscription.configIds.contains(c.id))
+              .toList();
+          final configs = _preserveConfigIds(existingConfigs, parsedConfigs);
 
           // Remove old configs for this subscription (if any exist)
           _configs.removeWhere((c) => subscription.configIds.contains(c.id));
@@ -1318,5 +1328,40 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   bool _isShadowSocks(V2RayConfig config) {
     final type = config.configType.toLowerCase();
     return type == 'shadowsocks' || type == 'ss';
+  }
+
+  List<V2RayConfig> _preserveConfigIds(
+    List<V2RayConfig> oldConfigs,
+    List<V2RayConfig> newConfigs,
+  ) {
+    if (oldConfigs.isEmpty) {
+      return newConfigs;
+    }
+
+    final fullConfigToId = <String, String>{};
+    final addressPortToId = <String, String>{};
+    for (final config in oldConfigs) {
+      fullConfigToId[config.fullConfig] = config.id;
+      addressPortToId['${config.address}:${config.port}'] = config.id;
+    }
+
+    return newConfigs.map((config) {
+      final preservedId =
+          fullConfigToId[config.fullConfig] ??
+          addressPortToId['${config.address}:${config.port}'];
+      if (preservedId == null) {
+        return config;
+      }
+      return V2RayConfig(
+        id: preservedId,
+        remark: config.remark,
+        address: config.address,
+        port: config.port,
+        configType: config.configType,
+        fullConfig: config.fullConfig,
+        isConnected: config.isConnected,
+        isProxyMode: config.isProxyMode,
+      );
+    }).toList();
   }
 }

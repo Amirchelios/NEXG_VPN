@@ -1102,8 +1102,14 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
                               ),
                             );
 
-                            // Clear saved pings when updating subscriptions
+                            // Clear cached results when updating subscriptions
                             await _clearSavedPings();
+                            await ServerScoreStore.clearScores();
+                            await ServerScoreStore.clearBadServers();
+                            await ServerScoreStore.saveMode(
+                              ServerScoreMode.discover,
+                            );
+                            await _loadScoreState();
                             _pings.clear();
                             if (mounted) {
                               setState(() {});

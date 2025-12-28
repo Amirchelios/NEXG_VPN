@@ -13,6 +13,7 @@ import 'about_screen.dart';
 import '../services/v2ray_service.dart';
 import '../services/wallpaper_service.dart';
 import '../utils/auto_select_util.dart';
+import '../utils/server_score_store.dart';
 import 'subscription_management_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -448,8 +449,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                 );
 
-                                // Update all subscriptions instead of just fetching servers
-                                await v2rayProvider.updateAllSubscriptions();
+                          // Clear cached results when updating subscriptions
+                          await ServerScoreStore.clearScores();
+                          await ServerScoreStore.clearBadServers();
+                          await ServerScoreStore.saveMode(
+                            ServerScoreMode.discover,
+                          );
+
+                          // Update all subscriptions instead of just fetching servers
+                          await v2rayProvider.updateAllSubscriptions();
                                 v2rayProvider.fetchNotificationStatus();
 
                                 // Show success message
