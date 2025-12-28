@@ -8,8 +8,6 @@ import '../theme/app_theme.dart';
 import '../widgets/error_snackbar.dart';
 import 'home_screen.dart';
 import 'telegram_proxy_screen.dart';
-import 'tools_screen.dart';
-import 'store_screen.dart';
 
 class MainNavigationScreen extends StatefulWidget {
   const MainNavigationScreen({super.key});
@@ -23,8 +21,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final List<Widget> _screens = [
     const HomeScreen(),
     const TelegramProxyScreen(),
-    const StoreScreen(),
-    const ToolsScreen(),
   ];
 
   @override
@@ -159,32 +155,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                       child: const Icon(Icons.telegram_rounded),
                     ),
                     label: context.tr(TranslationKeys.navProxy),
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Container(
-                      padding: const EdgeInsets.all(4.0),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _currentIndex == 2
-                            ? AppTheme.primaryBlue.withOpacity(0.2)
-                            : Colors.transparent,
-                      ),
-                      child: const Icon(Icons.storefront_rounded),
-                    ),
-                    label: context.tr(TranslationKeys.navStore),
-                  ),
-                  BottomNavigationBarItem(
-                    icon: Container(
-                      padding: const EdgeInsets.all(4.0),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: _currentIndex == 3
-                            ? AppTheme.primaryBlue.withOpacity(0.2)
-                            : Colors.transparent,
-                      ),
-                      child: const Icon(Icons.handyman_rounded),
-                    ),
-                    label: context.tr(TranslationKeys.navTools),
                   ),
                 ],
               ),
