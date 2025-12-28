@@ -137,7 +137,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 backgroundColor: Colors.transparent,
                 elevation: 0,
                 centerTitle: false,
-                actions: [],
+                leading: null,
+                actions: const [],
               ),
               body: Column(
                 children: [

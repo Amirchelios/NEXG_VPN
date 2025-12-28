@@ -66,6 +66,41 @@ class _ServerSelectorState extends State<ServerSelector> {
     await ServerScoreStore.saveMode(mode);
   }
 
+  Future<void> _refreshServers(V2RayProvider provider) async {
+    if (provider.isUpdatingSubscriptions) {
+      return;
+    }
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.tr('home.updating_subscriptions')),
+      ),
+    );
+
+    await ServerScoreStore.clearScores();
+    await ServerScoreStore.clearBadServers();
+    await ServerScoreStore.saveMode(ServerScoreMode.discover);
+
+    await provider.updateAllSubscriptions();
+    provider.fetchNotificationStatus();
+    await _refreshScoreState();
+
+    if (!mounted) return;
+    if (provider.errorMessage.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(context.tr('home.subscriptions_updated')),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(provider.errorMessage),
+        ),
+      );
+      provider.clearError();
+    }
+  }
+
   String _countryCodeToFlag(String countryCode) {
     final code = countryCode.trim().toUpperCase();
     if (code.length != 2) {
@@ -158,17 +193,33 @@ class _ServerSelectorState extends State<ServerSelector> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  context.tr(TranslationKeys.homeSelectServer),
-                  style: const TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
+            SizedBox(
+              height: 32,
+              child: Stack(
+                children: [
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      context.tr(TranslationKeys.homeSelectServer),
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: IconButton(
+                      icon: const Icon(Icons.refresh),
+                      tooltip:
+                          context.tr(TranslationKeys.serverSelectionUpdateServers),
+                      onPressed: provider.isUpdatingSubscriptions
+                          ? null
+                          : () => _refreshServers(provider),
+                    ),
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: 12),
             SplitModeButton(

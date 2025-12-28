@@ -630,7 +630,10 @@ class _ConnectionButtonState extends State<ConnectionButton> {
               height: 220,
               child: PageView(
                 controller: _pageController,
-                physics: isConnected || isConnecting
+                physics:
+                    isConnected ||
+                            isConnecting ||
+                            provider.smartFlowState != SmartFlowState.idle
                     ? const NeverScrollableScrollPhysics()
                     : const BouncingScrollPhysics(),
                 clipBehavior: Clip.none,
@@ -684,6 +687,8 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     required bool hasConfigs,
     required SmartFlowState smartFlowState,
   }) {
+    final effectiveConnecting =
+        isConnecting || smartFlowState == SmartFlowState.searching;
     return GestureDetector(
       onTap: () async {
         if (provider.isInitializing) {
@@ -778,7 +783,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
         }
       },
       child: AnimatedScale(
-        scale: isConnecting ? 1.05 : 1.0,
+        scale: effectiveConnecting ? 1.05 : 1.0,
         duration: const Duration(milliseconds: 600),
         curve: Curves.easeInOut,
         child: Container(
@@ -802,8 +807,8 @@ class _ConnectionButtonState extends State<ConnectionButton> {
             alignment: Alignment.center,
             children: [
               // Pulsing background ring (only visible when connecting)
-              if (isConnecting)
-                Container(
+            if (effectiveConnecting)
+              Container(
                       width: 210,
                       height: 210,
                       decoration: BoxDecoration(
@@ -811,7 +816,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                         border: Border.all(
                           color: _getButtonColor(
                             isConnected,
-                            isConnecting,
+                            effectiveConnecting,
                           ).withValues(alpha: 0.3),
                           width: 4,
                         ),
@@ -824,14 +829,17 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                     .scaleXY(end: 1.2, duration: 1000.ms),
 
               // Outer animated ring (only visible when connecting)
-              if (isConnecting)
-                Container(
+            if (effectiveConnecting)
+              Container(
                       width: 200,
                       height: 200,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
                         border: Border.all(
-                          color: _getButtonColor(isConnected, isConnecting),
+                          color: _getButtonColor(
+                            isConnected,
+                            effectiveConnecting,
+                          ),
                           width: 3,
                         ),
                       ),
@@ -840,8 +848,8 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                     .rotate(duration: 2000.ms, begin: 0, end: 1),
 
               // Middle ring
-              if (isConnecting)
-                Container(
+            if (effectiveConnecting)
+              Container(
                       width: 170,
                       height: 170,
                       decoration: BoxDecoration(
@@ -849,7 +857,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                         border: Border.all(
                           color: _getButtonColor(
                             isConnected,
-                            isConnecting,
+                            effectiveConnecting,
                           ).withValues(alpha: 0.7),
                           width: 2,
                         ),
@@ -870,13 +878,16 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: _getGradientColors(isConnected, isConnecting),
+                  colors: _getGradientColors(
+                    isConnected,
+                    effectiveConnecting,
+                  ),
                   ),
                   boxShadow: [
                     BoxShadow(
                       color: _getButtonColor(
                         isConnected,
-                        isConnecting,
+                        effectiveConnecting,
                       ).withValues(alpha: 0.5),
                       blurRadius: 15,
                       offset: const Offset(0, 5),
@@ -906,7 +917,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         Icon(
-                          _getButtonIcon(isConnected, isConnecting),
+                          _getButtonIcon(isConnected, effectiveConnecting),
                           color: Colors.white,
                           size: 54,
                         ),
@@ -914,7 +925,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                         Text(
                           _getButtonText(
                             isConnected,
-                            isConnecting,
+                            effectiveConnecting,
                             hasConfigs,
                             isCustom,
                             smartFlowState,
@@ -930,7 +941,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                     ),
 
                     // Progress indicator when connecting
-                    if (isConnecting)
+                    if (effectiveConnecting)
                       Positioned.fill(
                         child: CircularProgressIndicator(
                           valueColor: const AlwaysStoppedAnimation<Color>(
@@ -985,17 +996,15 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     bool isCustom,
     SmartFlowState smartFlowState,
   ) {
-    if (!isCustom && smartFlowState == SmartFlowState.searching) {
-      return 'در حال یافتن سرور جدید';
-    }
+    if (isConnecting) return 'در حال اتصال...';
     if (!isCustom && smartFlowState == SmartFlowState.testing) {
       return 'در حال تست سرور';
     }
-    if (isConnecting) return 'در حال اتصال...';
     if (isConnected) return 'قطع اتصال';
     if (isCustom) return 'اتصال هوشمند (اینستاگرام و یوتیوب)';
     if (hasConfigs) return 'XConnect';
     return 'No Servers';
   }
+
 }
 
