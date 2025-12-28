@@ -602,6 +602,10 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
               }
             }
           },
+          onBadServer: (config) async {
+            await ServerScoreStore.addBadServer(config.id);
+            await ServerScoreStore.removeScore(config.id);
+          },
           cancellationToken: _autoSelectCancellationToken,
         );
       }

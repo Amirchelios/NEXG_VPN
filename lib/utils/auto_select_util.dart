@@ -47,6 +47,7 @@ class AutoSelectUtil {
     V2RayService v2rayService, {
     void Function(String)? onStatusUpdate,
     AutoSelectCancellationToken? cancellationToken,
+    Future<void> Function(V2RayConfig config)? onBadServer,
   }) async {
     try {
       // Get batch size (increased for faster testing)
@@ -135,6 +136,9 @@ class AutoSelectUtil {
             }
           } else {
             onStatusUpdate?.call('✗ ${config.remark}: Failed');
+            if (onBadServer != null) {
+              await onBadServer(config);
+            }
           }
         }
 

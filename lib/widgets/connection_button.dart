@@ -155,6 +155,10 @@ class _ConnectionButtonState extends State<ConnectionButton> {
             // Update status in the dialog
             _autoSelectStatusStream.add(message);
           },
+          onBadServer: (config) async {
+            await ServerScoreStore.addBadServer(config.id);
+            await ServerScoreStore.removeScore(config.id);
+          },
           cancellationToken: _autoSelectCancellationToken,
         );
       }
