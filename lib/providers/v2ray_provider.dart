@@ -25,6 +25,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   bool _isUpdatingSubscriptions = false; // Track when updates are in progress
   bool _isAutoRecovering = false;
   ConnectMode _connectMode = ConnectMode.normal;
+  SmartFlowState _smartFlowState = SmartFlowState.idle;
+  AutoSelectCancellationToken? _autoRecoverCancellationToken;
+  bool _smartFlowCancelled = false;
+  bool _cancelConnectRequested = false;
 
   // Method channel for VPN control
   static const platform = MethodChannel('com.cloud.pira/vpn_control');
@@ -43,6 +47,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   bool get isUpdatingSubscriptions =>
       _isUpdatingSubscriptions; // Getter for update state
   ConnectMode get connectMode => _connectMode;
+  SmartFlowState get smartFlowState => _smartFlowState;
 
   // Expose V2Ray status for real-time traffic monitoring
   V2RayStatus? get currentStatus => _v2rayService.currentStatus;
@@ -815,6 +820,8 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   Future<void> connectToServer(V2RayConfig config, bool isProxyMode) async {
     _isConnecting = true;
     _errorMessage = '';
+    _smartFlowCancelled = false;
+    _cancelConnectRequested = false;
     notifyListeners();
 
     // Maximum number of connection attempts
@@ -840,9 +847,14 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       String lastError = '';
       int attemptCount = 0;
 
+      bool cancelled = false;
       for (int attempt = 1; attempt <= maxAttempts; attempt++) {
         attemptCount = attempt;
         try {
+          if (_cancelConnectRequested) {
+            cancelled = true;
+            break;
+          }
           debugPrint(
             'Connection attempt $attempt/$maxAttempts for ${config.remark}',
           );
@@ -858,6 +870,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
                 },
               );
 
+          if (_cancelConnectRequested) {
+            cancelled = true;
+            break;
+          }
           if (success) {
             debugPrint('Connection successful for ${config.remark}');
             // Verify the connection is actually established
@@ -900,6 +916,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         }
       }
 
+      if (cancelled) {
+        return;
+      }
+
       if (success) {
         try {
           // Wait for connection to stabilize
@@ -935,6 +955,11 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             // Don't fail the connection for this
           }
 
+          if (_connectMode == ConnectMode.normal) {
+            _smartFlowState = SmartFlowState.testing;
+            notifyListeners();
+          }
+
           Future(() async {
             await _scoreConnectedServer(config);
           });
@@ -961,6 +986,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> disconnect() async {
     _isConnecting = true;
+    _smartFlowState = SmartFlowState.idle;
+    _autoRecoverCancellationToken?.cancel();
+    _autoRecoverCancellationToken = null;
     notifyListeners();
 
     try {
@@ -986,6 +1014,11 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       return;
     }
     _connectMode = mode;
+    if (mode != ConnectMode.normal) {
+      _smartFlowState = SmartFlowState.idle;
+      _autoRecoverCancellationToken?.cancel();
+      _autoRecoverCancellationToken = null;
+    }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('connect_mode', mode.name);
     notifyListeners();
@@ -996,6 +1029,8 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   ) async {
     _isConnecting = true;
     _errorMessage = '';
+    _smartFlowCancelled = false;
+    _cancelConnectRequested = false;
     notifyListeners();
 
     try {
@@ -1010,6 +1045,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
       bool success = false;
       for (final preset in presets) {
+        if (_cancelConnectRequested) {
+          return;
+        }
         final remark = preset['remark'] ?? 'Custom';
         final rawConfig = preset['config'] ?? '';
         if (rawConfig.isEmpty) {
@@ -1049,8 +1087,15 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> _scoreConnectedServer(V2RayConfig config) async {
     try {
+      if (_smartFlowCancelled) {
+        return;
+      }
       final existing = await ServerScoreStore.getScore(config.id);
       if (existing != null) {
+        if (_connectMode == ConnectMode.normal) {
+          _smartFlowState = SmartFlowState.idle;
+          notifyListeners();
+        }
         return;
       }
 
@@ -1064,6 +1109,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         pingValue = -1;
       }
 
+      if (_smartFlowCancelled) {
+        return;
+      }
       final results = await _v2rayService.probeWebsites({
         'youtube': Uri.parse('https://www.youtube.com'),
         'instagram': Uri.parse('https://www.instagram.com'),
@@ -1076,6 +1124,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       if (!isHealthy) {
         await ServerScoreStore.addBadServer(config.id);
         await ServerScoreStore.removeScore(config.id);
+        if (_connectMode == ConnectMode.normal) {
+          _smartFlowState = SmartFlowState.searching;
+          notifyListeners();
+        }
         await _autoRecoverFromBadServer(config);
         return;
       }
@@ -1105,6 +1157,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           countryCode: countryCode,
         ),
       );
+      if (_connectMode == ConnectMode.normal) {
+        _smartFlowState = SmartFlowState.idle;
+        notifyListeners();
+      }
     } catch (e) {
       debugPrint('Error scoring server ${config.remark}: $e');
     }
@@ -1117,12 +1173,18 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     if (_v2rayService.activeConfig?.id != config.id) {
       return;
     }
+    if (_smartFlowCancelled) {
+      return;
+    }
     _isAutoRecovering = true;
     try {
       var waitCycles = 0;
       while (_isConnecting && waitCycles < 10) {
         await Future.delayed(const Duration(milliseconds: 200));
         waitCycles++;
+      }
+      if (_smartFlowCancelled) {
+        return;
       }
       await disconnect();
 
@@ -1151,23 +1213,47 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       }
 
       if (candidates.isEmpty) {
+        if (_connectMode == ConnectMode.normal) {
+          _smartFlowState = SmartFlowState.idle;
+          notifyListeners();
+        }
         return;
       }
 
+      _autoRecoverCancellationToken?.cancel();
+      _autoRecoverCancellationToken = AutoSelectCancellationToken();
       final result = await AutoSelectUtil.runAutoSelect(
         candidates,
         _v2rayService,
+        cancellationToken: _autoRecoverCancellationToken,
       );
+
+      if (result.errorMessage == 'Auto-select cancelled') {
+        return;
+      }
 
       if (result.selectedConfig != null) {
         await selectConfig(result.selectedConfig!);
         await connectToServer(result.selectedConfig!, _isProxyMode);
+      } else if (_connectMode == ConnectMode.normal) {
+        _smartFlowState = SmartFlowState.idle;
+        notifyListeners();
       }
     } catch (e) {
       debugPrint('Auto-recover failed for ${config.remark}: $e');
     } finally {
       _isAutoRecovering = false;
     }
+  }
+
+  Future<void> cancelSmartFlowAndDisconnect() async {
+    _smartFlowCancelled = true;
+    _cancelConnectRequested = true;
+    _autoRecoverCancellationToken?.cancel();
+    _autoRecoverCancellationToken = null;
+    _smartFlowState = SmartFlowState.idle;
+    notifyListeners();
+    await disconnect();
   }
 
   Future<void> selectConfig(V2RayConfig config) async {
@@ -1445,3 +1531,5 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 }
 
 enum ConnectMode { normal, smart }
+
+enum SmartFlowState { idle, testing, searching }

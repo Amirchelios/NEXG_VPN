@@ -651,6 +651,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                     isConnecting: isConnecting,
                     selectedConfig: selectedConfig,
                     hasConfigs: hasConfigs,
+                    smartFlowState: provider.smartFlowState,
                   ),
                   _buildConnectButton(
                     context,
@@ -660,6 +661,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                     isConnecting: isConnecting,
                     selectedConfig: selectedConfig,
                     hasConfigs: hasConfigs,
+                    smartFlowState: provider.smartFlowState,
                   ),
                 ],
               ),
@@ -680,14 +682,25 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     required bool isConnecting,
     required V2RayConfig? selectedConfig,
     required bool hasConfigs,
+    required SmartFlowState smartFlowState,
   }) {
     return GestureDetector(
       onTap: () async {
-        if (isConnecting || provider.isInitializing) {
+        if (provider.isInitializing) {
           return;
         }
 
         try {
+          if (isConnecting || smartFlowState != SmartFlowState.idle) {
+            _autoSelectCancellationToken?.cancel();
+            _autoSelectCancellationToken = null;
+            if (mounted && Navigator.of(context).canPop()) {
+              Navigator.of(context).pop();
+            }
+            await provider.cancelSmartFlowAndDisconnect();
+            return;
+          }
+
           if (isConnected) {
             await provider.disconnect();
             return;
@@ -904,6 +917,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                             isConnecting,
                             hasConfigs,
                             isCustom,
+                            smartFlowState,
                           ),
                           style: const TextStyle(
                             color: Colors.white,
@@ -969,7 +983,14 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     bool isConnecting,
     bool hasConfigs,
     bool isCustom,
+    SmartFlowState smartFlowState,
   ) {
+    if (!isCustom && smartFlowState == SmartFlowState.searching) {
+      return 'در حال یافتن سرور جدید';
+    }
+    if (!isCustom && smartFlowState == SmartFlowState.testing) {
+      return 'در حال تست سرور';
+    }
     if (isConnecting) return 'در حال اتصال...';
     if (isConnected) return 'قطع اتصال';
     if (isCustom) return 'اتصال هوشمند (اینستاگرام و یوتیوب)';
