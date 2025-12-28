@@ -630,6 +630,9 @@ class _ConnectionButtonState extends State<ConnectionButton> {
               height: 220,
               child: PageView(
                 controller: _pageController,
+                physics: isConnected || isConnecting
+                    ? const NeverScrollableScrollPhysics()
+                    : const BouncingScrollPhysics(),
                 clipBehavior: Clip.none,
                 onPageChanged: (index) {
                   setState(() {
