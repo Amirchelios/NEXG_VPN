@@ -195,7 +195,8 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   Consumer<V2RayProvider>(
                     builder: (context, provider, _) {
-                      if (provider.activeConfig == null) {
+                      if (provider.activeConfig == null ||
+                          provider.connectMode == ConnectMode.smart) {
                         return const SizedBox.shrink();
                       }
 
