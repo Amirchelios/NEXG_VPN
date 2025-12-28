@@ -24,14 +24,27 @@ class _ConnectionButtonState extends State<ConnectionButton> {
   // Stream controller for status updates
   late final StreamController<String> _autoSelectStatusStream =
       StreamController<String>.broadcast();
-  final PageController _pageController = PageController();
+  late final PageController _pageController;
   int _pageIndex = 0;
+  bool _pageInitialized = false;
 
   @override
   void dispose() {
     _pageController.dispose();
     _autoSelectStatusStream.close();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_pageInitialized) {
+      return;
+    }
+    final provider = Provider.of<V2RayProvider>(context, listen: false);
+    _pageIndex = provider.connectMode == ConnectMode.smart ? 1 : 0;
+    _pageController = PageController(initialPage: _pageIndex);
+    _pageInitialized = true;
   }
 
   // Helper method to handle async selection and connection
@@ -622,10 +635,14 @@ class _ConnectionButtonState extends State<ConnectionButton> {
               height: 180,
               child: PageView(
                 controller: _pageController,
+                clipBehavior: Clip.none,
                 onPageChanged: (index) {
                   setState(() {
                     _pageIndex = index;
                   });
+                  provider.setConnectMode(
+                    index == 1 ? ConnectMode.smart : ConnectMode.normal,
+                  );
                 },
                 children: [
                   _buildConnectButton(
@@ -949,8 +966,8 @@ class _ConnectionButtonState extends State<ConnectionButton> {
   ) {
     if (isConnecting) return 'Connecting...';
     if (isConnected) return 'Disconnect';
-    if (isCustom) return 'Custom Connect';
-    if (hasConfigs) return 'Connect';
+    if (isCustom) return 'اتصال هوشمند (اینستاگرام و یوتیوب)';
+    if (hasConfigs) return 'XConnect';
     return 'No Servers';
   }
 }

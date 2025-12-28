@@ -24,6 +24,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   bool _isInitializing = true;
   bool _isUpdatingSubscriptions = false; // Track when updates are in progress
   bool _isAutoRecovering = false;
+  ConnectMode _connectMode = ConnectMode.normal;
 
   // Method channel for VPN control
   static const platform = MethodChannel('com.cloud.pira/vpn_control');
@@ -41,6 +42,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   bool get isProxyMode => _isProxyMode;
   bool get isUpdatingSubscriptions =>
       _isUpdatingSubscriptions; // Getter for update state
+  ConnectMode get connectMode => _connectMode;
 
   // Expose V2Ray status for real-time traffic monitoring
   V2RayStatus? get currentStatus => _v2rayService.currentStatus;
@@ -112,6 +114,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       // Load proxy mode setting from SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       _isProxyMode = prefs.getBool('proxy_mode_enabled') ?? false;
+      _connectMode = ConnectMode.values.firstWhere(
+        (mode) => mode.name == (prefs.getString('connect_mode') ?? 'normal'),
+        orElse: () => ConnectMode.normal,
+      );
 
       // Update all subscriptions on app start with fresh data
       // Only update if we have subscriptions to avoid unnecessary operations
@@ -975,6 +981,16 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
+  Future<void> setConnectMode(ConnectMode mode) async {
+    if (_connectMode == mode) {
+      return;
+    }
+    _connectMode = mode;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('connect_mode', mode.name);
+    notifyListeners();
+  }
+
   Future<void> connectToCustomConfigs(
     List<Map<String, String>> presets,
   ) async {
@@ -1427,3 +1443,5 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     }).toList();
   }
 }
+
+enum ConnectMode { normal, smart }

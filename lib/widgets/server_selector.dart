@@ -23,11 +23,19 @@ class _ServerSelectorState extends State<ServerSelector> {
   bool _hasScores = false;
   bool _isRefreshing = false;
   Map<String, ServerScore> _serverScores = {};
+  late final PageController _modeController = PageController();
+  ConnectMode? _lastConnectMode;
 
   @override
   void initState() {
     super.initState();
     _refreshScoreState();
+  }
+
+  @override
+  void dispose() {
+    _modeController.dispose();
+    super.dispose();
   }
 
   Future<void> _refreshScoreState() async {
@@ -101,6 +109,16 @@ class _ServerSelectorState extends State<ServerSelector> {
       builder: (context, provider, languageProvider, wallpaperService, _) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _refreshScoreState();
+          if (_lastConnectMode != provider.connectMode) {
+            _lastConnectMode = provider.connectMode;
+            final pageIndex =
+                provider.connectMode == ConnectMode.smart ? 1 : 0;
+            _modeController.animateToPage(
+              pageIndex,
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOut,
+            );
+          }
         });
         return Directionality(
           textDirection: languageProvider.textDirection,
@@ -159,102 +177,146 @@ class _ServerSelectorState extends State<ServerSelector> {
               onChanged: _setScoreMode,
             ),
             const SizedBox(height: 12),
-            GestureDetector(
-              onTap: isConnecting
-                  ? null
-                  : () {
-                      // Check if already connected to VPN
-                      if (provider.activeConfig != null) {
-                        // Show popup to inform user to disconnect first
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: Text(
-                              context.tr(
-                                TranslationKeys.serverSelectorConnectionActive,
-                              ),
-                            ),
-                            content: Text(
-                              context.tr(
-                                TranslationKeys.serverSelectorDisconnectFirst,
-                              ),
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: Text(
-                                  context.tr(TranslationKeys.commonOk),
+            SizedBox(
+              height: 56,
+              child: PageView(
+                controller: _modeController,
+                physics: const NeverScrollableScrollPhysics(),
+                children: [
+                  GestureDetector(
+                    onTap: isConnecting
+                        ? null
+                        : () {
+                            // Check if already connected to VPN
+                            if (provider.activeConfig != null) {
+                              // Show popup to inform user to disconnect first
+                              showDialog(
+                                context: context,
+                                builder: (context) => AlertDialog(
+                                  title: Text(
+                                    context.tr(
+                                      TranslationKeys
+                                          .serverSelectorConnectionActive,
+                                    ),
+                                  ),
+                                  content: Text(
+                                    context.tr(
+                                      TranslationKeys
+                                          .serverSelectorDisconnectFirst,
+                                    ),
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: Text(
+                                        context.tr(TranslationKeys.commonOk),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            } else {
+                              // Not connected, show server selector as full page
+                              showServerSelectionScreen(
+                                context: context,
+                                configs: configs,
+                                selectedConfig: selectedConfig,
+                                isConnecting: isConnecting,
+                                onConfigSelected: (config) async {
+                                  await provider.selectConfig(config);
+                                },
+                              );
+                            }
+                          },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isGlassBackground
+                            ? AppTheme.surfaceContainer.withOpacity(0.7)
+                            : AppTheme.surfaceContainer,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: AppTheme.surfaceCard),
+                      ),
+                      child: Row(
+                        children: [
+                          if (selectedConfig != null) ...[
+                            Container(
+                              width: 12,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: _getServerStatusColor(
+                                  selectedConfig,
+                                  provider,
                                 ),
                               ),
-                            ],
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                _getScoredDisplayName(selectedConfig),
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 16),
+                              ),
+                            ),
+                          ] else ...[
+                            Expanded(
+                              child: Text(
+                                context.tr(
+                                  TranslationKeys.serverSelectorSelectServer,
+                                ),
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ),
+                          ],
+                          const Icon(
+                            Icons.arrow_drop_down,
+                            color: AppTheme.connectedGreen,
                           ),
-                        );
-                      } else {
-                        // Not connected, show server selector as full page
-                        showServerSelectionScreen(
-                          context: context,
-                          configs: configs,
-                          selectedConfig: selectedConfig,
-                          isConnecting: isConnecting,
-                          onConfigSelected: (config) async {
-                            await provider.selectConfig(config);
-                          },
-                        );
-                      }
-                    },
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
-                decoration: BoxDecoration(
-                  color: isGlassBackground
-                      ? AppTheme.surfaceContainer.withOpacity(0.7)
-                      : AppTheme.surfaceContainer,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: AppTheme.surfaceCard),
-                ),
-                child: Row(
-                  children: [
-                    if (selectedConfig != null) ...[
-                      Container(
-                        width: 12,
-                        height: 12,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: _getServerStatusColor(
-                            selectedConfig,
-                            provider,
-                          ),
-                        ),
+                        ],
                       ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Text(
-                          _getScoredDisplayName(selectedConfig),
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                      ),
-                    ] else ...[
-                      Expanded(
-                        child: Text(
-                          context.tr(
-                            TranslationKeys.serverSelectorSelectServer,
-                          ),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            color: Colors.grey,
-                          ),
-                        ),
-                      ),
-                    ],
-                    const Icon(
-                      Icons.arrow_drop_down,
-                      color: AppTheme.connectedGreen,
                     ),
-                  ],
-                ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isGlassBackground
+                          ? AppTheme.surfaceContainer.withOpacity(0.7)
+                          : AppTheme.surfaceContainer,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppTheme.surfaceCard),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(
+                          Icons.auto_awesome,
+                          color: AppTheme.primaryGreen,
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'اتصال هوشمند فعال است',
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 16),
+                          ),
+                        ),
+                        const Icon(
+                          Icons.lock,
+                          color: AppTheme.textGrey,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 12),
