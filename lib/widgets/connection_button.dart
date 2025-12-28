@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
+import 'dart:convert';
 import '../providers/v2ray_provider.dart';
+import '../models/v2ray_config.dart';
 import '../theme/app_theme.dart';
 import '../utils/auto_select_util.dart';
 import '../utils/app_localizations.dart';
@@ -22,9 +24,12 @@ class _ConnectionButtonState extends State<ConnectionButton> {
   // Stream controller for status updates
   late final StreamController<String> _autoSelectStatusStream =
       StreamController<String>.broadcast();
+  final PageController _pageController = PageController();
+  int _pageIndex = 0;
 
   @override
   void dispose() {
+    _pageController.dispose();
     _autoSelectStatusStream.close();
     super.dispose();
   }
@@ -201,6 +206,380 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     }
   }
 
+  List<Map<String, String>> _loadCustomPresets() {
+    const rawPresets = '''[
+  {
+    "remarks": "ServLess frag tlshello",
+    "log": {
+      "access": "",
+      "error": "",
+      "loglevel": "none",
+      "dnsLog": false
+    },
+    "dns": {
+      "tag": "dns",
+      "hosts": {
+        "cloudflare-dns.com": [
+          "172.67.73.38",
+          "104.19.155.92",
+          "172.67.73.163",
+          "104.18.155.42",
+          "104.16.124.175",
+          "104.16.248.249",
+          "104.16.249.249",
+          "104.26.13.8"
+        ],
+        "domain:youtube.com": ["google.com"]
+      },
+      "servers": ["https://cloudflare-dns.com/dns-query"]
+    },
+    "inbounds": [
+      {
+        "domainOverride": ["http", "tls"],
+        "protocol": "socks",
+        "tag": "socks-in",
+        "listen": "127.0.0.1",
+        "port": 10808,
+        "settings": {
+          "auth": "noauth",
+          "udp": true,
+          "userLevel": 8
+        },
+        "sniffing": {
+          "enabled": true,
+          "destOverride": ["http", "tls"]
+        }
+      },
+      {
+        "protocol": "http",
+        "tag": "http-in",
+        "listen": "127.0.0.1",
+        "port": 10809,
+        "settings": {
+          "userLevel": 8
+        },
+        "sniffing": {
+          "enabled": true,
+          "destOverride": ["http", "tls"]
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "protocol": "freedom",
+        "tag": "fragment-out",
+        "domainStrategy": "UseIP",
+        "sniffing": {
+          "enabled": true,
+          "destOverride": ["http", "tls"]
+        },
+        "settings": {
+          "fragment": {
+            "packets": "tlshello",
+            "length": "10-20",
+            "interval": "10-20"
+          }
+        },
+        "streamSettings": {
+          "sockopt": {
+            "tcpNoDelay": true,
+            "tcpKeepAliveIdle": 100,
+            "mark": 255,
+            "domainStrategy": "UseIP"
+          }
+        }
+      },
+      {
+        "protocol": "dns",
+        "tag": "dns-out"
+      },
+      {
+        "protocol": "vless",
+        "tag": "fakeproxy-out",
+        "domainStrategy": "",
+        "settings": {
+          "vnext": [
+            {
+              "address": "google.com",
+              "port": 443,
+              "users": [
+                {
+                  "encryption": "none",
+                  "flow": "",
+                  "id": "UUID",
+                  "level": 8,
+                  "security": "auto"
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "ws",
+          "security": "tls",
+          "tlsSettings": {
+            "allowInsecure": false,
+            "alpn": ["h2", "http/1.1"],
+            "fingerprint": "randomized",
+            "publicKey": "",
+            "serverName": "google.com",
+            "shortId": "",
+            "show": false,
+            "spiderX": ""
+          },
+          "wsSettings": {
+            "headers": {
+              "Host": "google.com"
+            },
+            "path": "/"
+          }
+        },
+        "mux": {
+          "concurrency": 8,
+          "enabled": false
+        }
+      }
+    ],
+    "policy": {
+      "levels": {
+        "8": {
+          "connIdle": 300,
+          "downlinkOnly": 1,
+          "handshake": 4,
+          "uplinkOnly": 1
+        }
+      },
+      "system": {
+        "statsOutboundUplink": true,
+        "statsOutboundDownlink": true
+      }
+    },
+    "routing": {
+      "domainStrategy": "IPIfNonMatch",
+      "rules": [
+        {
+          "inboundTag": ["socks-in", "http-in"],
+          "type": "field",
+          "port": "53",
+          "outboundTag": "dns-out",
+          "enabled": true
+        },
+        {
+          "inboundTag": ["socks-in", "http-in"],
+          "type": "field",
+          "port": "0-65535",
+          "outboundTag": "fragment-out",
+          "enabled": true
+        }
+      ],
+      "strategy": "rules"
+    },
+    "stats": {}
+  },
+  {
+    "remarks": "ServLess frag 1-1",
+    "log": {
+      "access": "",
+      "error": "",
+      "loglevel": "none",
+      "dnsLog": false
+    },
+    "dns": {
+      "tag": "dns",
+      "hosts": {
+        "cloudflare-dns.com": [
+          "172.67.73.38",
+          "104.19.155.92",
+          "172.67.73.163",
+          "104.18.155.42",
+          "104.16.124.175",
+          "104.16.248.249",
+          "104.16.249.249",
+          "104.26.13.8"
+        ],
+        "domain:youtube.com": ["google.com"]
+      },
+      "servers": ["https://cloudflare-dns.com/dns-query"]
+    },
+    "inbounds": [
+      {
+        "domainOverride": ["http", "tls"],
+        "protocol": "socks",
+        "tag": "socks-in",
+        "listen": "127.0.0.1",
+        "port": 10808,
+        "settings": {
+          "auth": "noauth",
+          "udp": true,
+          "userLevel": 8
+        },
+        "sniffing": {
+          "enabled": true,
+          "destOverride": ["http", "tls"]
+        }
+      },
+      {
+        "protocol": "http",
+        "tag": "http-in",
+        "listen": "127.0.0.1",
+        "port": 10809,
+        "settings": {
+          "userLevel": 8
+        },
+        "sniffing": {
+          "enabled": true,
+          "destOverride": ["http", "tls"]
+        }
+      }
+    ],
+    "outbounds": [
+      {
+        "protocol": "freedom",
+        "tag": "fragment-out",
+        "domainStrategy": "UseIP",
+        "sniffing": {
+          "enabled": true,
+          "destOverride": ["http", "tls"]
+        },
+        "settings": {
+          "fragment": {
+            "packets": "1-1",
+            "length": "1-3",
+            "interval": "5-10"
+          }
+        },
+        "streamSettings": {
+          "sockopt": {
+            "tcpNoDelay": true,
+            "tcpKeepAliveIdle": 100,
+            "mark": 255,
+            "domainStrategy": "UseIP"
+          }
+        }
+      },
+      {
+        "protocol": "dns",
+        "tag": "dns-out"
+      },
+      {
+        "protocol": "vless",
+        "tag": "fakeproxy-out",
+        "domainStrategy": "",
+        "settings": {
+          "vnext": [
+            {
+              "address": "google.com",
+              "port": 443,
+              "users": [
+                {
+                  "encryption": "none",
+                  "flow": "",
+                  "id": "UUID",
+                  "level": 8,
+                  "security": "auto"
+                }
+              ]
+            }
+          ]
+        },
+        "streamSettings": {
+          "network": "ws",
+          "security": "tls",
+          "tlsSettings": {
+            "allowInsecure": false,
+            "alpn": ["h2", "http/1.1"],
+            "fingerprint": "randomized",
+            "publicKey": "",
+            "serverName": "google.com",
+            "shortId": "",
+            "show": false,
+            "spiderX": ""
+          },
+          "wsSettings": {
+            "headers": {
+              "Host": "google.com"
+            },
+            "path": "/"
+          }
+        },
+        "mux": {
+          "concurrency": 8,
+          "enabled": false
+        }
+      }
+    ],
+    "policy": {
+      "levels": {
+        "8": {
+          "connIdle": 300,
+          "downlinkOnly": 1,
+          "handshake": 4,
+          "uplinkOnly": 1
+        }
+      },
+      "system": {
+        "statsOutboundUplink": true,
+        "statsOutboundDownlink": true
+      }
+    },
+    "routing": {
+      "domainStrategy": "IPIfNonMatch",
+      "rules": [
+        {
+          "inboundTag": ["socks-in", "http-in"],
+          "type": "field",
+          "port": "53",
+          "outboundTag": "dns-out",
+          "enabled": true
+        },
+        {
+          "inboundTag": ["socks-in", "http-in"],
+          "type": "field",
+          "port": "0-65535",
+          "outboundTag": "fragment-out",
+          "enabled": true
+        }
+      ],
+      "strategy": "rules"
+    },
+    "stats": {}
+  }
+]''';
+
+    final data = jsonDecode(rawPresets) as List<dynamic>;
+    return data.map((entry) {
+      final map = entry as Map<String, dynamic>;
+      final remark = map['remarks']?.toString() ?? 'Custom';
+      return {
+        'remark': remark,
+        'config': jsonEncode(map),
+      };
+    }).toList();
+  }
+
+  Widget _buildModeDots() {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        _buildDot(_pageIndex == 0),
+        const SizedBox(width: 6),
+        _buildDot(_pageIndex == 1),
+      ],
+    );
+  }
+
+  Widget _buildDot(bool active) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 200),
+      width: active ? 16 : 6,
+      height: 6,
+      decoration: BoxDecoration(
+        color: active ? AppTheme.primaryGreen : AppTheme.textGrey,
+        borderRadius: BorderRadius.circular(8),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<V2RayProvider>(
@@ -235,59 +614,76 @@ class _ConnectionButtonState extends State<ConnectionButton> {
         final selectedConfig = provider.selectedConfig;
         final hasConfigs = provider.configs.isNotEmpty;
 
-        return GestureDetector(
-          onTap: () async {
-            // Prevent multiple taps while connecting or initializing
-            if (isConnecting || provider.isInitializing) {
-              return;
-            }
-
-            try {
-              if (isConnected) {
-                await provider.disconnect();
-              } else if (selectedConfig != null) {
-                final mode = await ServerScoreStore.loadMode();
-                final scores = await ServerScoreStore.loadScores();
-                final badIds = await ServerScoreStore.loadBadServerIds();
-                final scoredIds = scores.keys.toSet();
-                final isBad = badIds.contains(selectedConfig.id);
-                final isScored = scoredIds.contains(selectedConfig.id);
-                final useSelected =
-                    mode == ServerScoreMode.scored ? isScored : !isScored;
-
-                if (isBad || !useSelected) {
-                  await _runAutoSelectAndConnect(context, provider);
-                  return;
-                }
-                await provider.connectToServer(
-                  selectedConfig,
-                  provider.isProxyMode,
-                );
-              } else if (hasConfigs) {
-                // No server selected, run auto-select and then connect
-                await _runAutoSelectAndConnect(context, provider);
-              } else {
-                // Show a message if no configs are available
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      context.tr(TranslationKeys.serverSelectorNoServers),
-                    ),
-                    backgroundColor: Colors.red,
-                    behavior: SnackBarBehavior.floating,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 180,
+              height: 180,
+              child: PageView(
+                controller: _pageController,
+                onPageChanged: (index) {
+                  setState(() {
+                    _pageIndex = index;
+                  });
+                },
+                children: [
+                  _buildConnectButton(
+                    context,
+                    provider,
+                    isCustom: false,
+                    isConnected: isConnected,
+                    isConnecting: isConnecting,
+                    selectedConfig: selectedConfig,
+                    hasConfigs: hasConfigs,
                   ),
-                );
-              }
-            } catch (e) {
-              // Show error message
+                  _buildConnectButton(
+                    context,
+                    provider,
+                    isCustom: true,
+                    isConnected: isConnected,
+                    isConnecting: isConnecting,
+                    selectedConfig: selectedConfig,
+                    hasConfigs: hasConfigs,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            _buildModeDots(),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildConnectButton(
+    BuildContext context,
+    V2RayProvider provider, {
+    required bool isCustom,
+    required bool isConnected,
+    required bool isConnecting,
+    required V2RayConfig? selectedConfig,
+    required bool hasConfigs,
+  }) {
+    return GestureDetector(
+      onTap: () async {
+        if (isConnecting || provider.isInitializing) {
+          return;
+        }
+
+        try {
+          if (isConnected) {
+            await provider.disconnect();
+            return;
+          }
+
+          if (isCustom) {
+            final presets = _loadCustomPresets();
+            if (presets.isEmpty) {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text(
-                    '${context.tr('home.connection_failed')}: ${e.toString()}',
-                  ),
+                  content: const Text('Custom config missing'),
                   backgroundColor: Colors.red,
                   behavior: SnackBarBehavior.floating,
                   shape: RoundedRectangleBorder(
@@ -295,9 +691,62 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                   ),
                 ),
               );
+              return;
             }
-          },
-          child: Container(
+            await provider.connectToCustomConfigs(presets);
+            return;
+          }
+
+          if (selectedConfig != null) {
+            final mode = await ServerScoreStore.loadMode();
+            final scores = await ServerScoreStore.loadScores();
+            final badIds = await ServerScoreStore.loadBadServerIds();
+            final scoredIds = scores.keys.toSet();
+            final isBad = badIds.contains(selectedConfig.id);
+            final isScored = scoredIds.contains(selectedConfig.id);
+            final useSelected =
+                mode == ServerScoreMode.scored ? isScored : !isScored;
+
+            if (isBad || !useSelected) {
+              await _runAutoSelectAndConnect(context, provider);
+              return;
+            }
+            await provider.connectToServer(
+              selectedConfig,
+              provider.isProxyMode,
+            );
+          } else if (hasConfigs) {
+            await _runAutoSelectAndConnect(context, provider);
+          } else {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(
+                  context.tr(TranslationKeys.serverSelectorNoServers),
+                ),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+            );
+          }
+        } catch (e) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '${context.tr('home.connection_failed')}: ${e.toString()}',
+              ),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+        }
+      },
+      child: Container(
             width: 180,
             height: 180,
             decoration: BoxDecoration(
@@ -432,6 +881,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                               isConnected,
                               isConnecting,
                               hasConfigs,
+                              isCustom,
                             ),
                             style: const TextStyle(
                               color: Colors.white,
@@ -460,8 +910,6 @@ class _ConnectionButtonState extends State<ConnectionButton> {
             ),
           ),
         );
-      },
-    );
   }
 
   Color _getButtonColor(bool isConnected, bool isConnecting) {
@@ -493,9 +941,15 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     return isConnected ? Icons.power_off : Icons.power_settings_new;
   }
 
-  String _getButtonText(bool isConnected, bool isConnecting, bool hasConfigs) {
+  String _getButtonText(
+    bool isConnected,
+    bool isConnecting,
+    bool hasConfigs,
+    bool isCustom,
+  ) {
     if (isConnecting) return 'Connecting...';
     if (isConnected) return 'Disconnect';
+    if (isCustom) return 'Custom Connect';
     if (hasConfigs) return 'Connect';
     return 'No Servers';
   }

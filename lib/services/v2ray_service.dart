@@ -344,6 +344,97 @@ class V2RayService extends ChangeNotifier {
     }
   }
 
+  Future<bool> connectRawConfig(
+    String remark,
+    String rawConfig,
+    bool statusProxy,
+  ) async {
+    try {
+      await initialize();
+
+      // Request permission if needed (for VPN mode)
+      bool hasPermission = await _flutterV2ray.requestPermission();
+      if (!hasPermission) {
+        debugPrint('VPN permission not granted');
+        return false;
+      }
+
+      final prefs = await SharedPreferences.getInstance();
+
+      // Get bypass subnets settings
+      final bool bypassEnabled =
+          prefs.getBool('bypass_subnets_enabled') ?? false;
+      List<String>? bypassSubnets;
+
+      if (bypassEnabled) {
+        final String savedSubnets = prefs.getString('bypass_subnets') ?? '';
+        if (savedSubnets.isNotEmpty) {
+          bypassSubnets = savedSubnets.trim().split('\n');
+        }
+      } else {
+        bypassSubnets = null;
+      }
+
+      // Save the proxy mode setting to SharedPreferences
+      await prefs.setBool('proxy_mode_enabled', statusProxy);
+
+      // Get blocked apps from shared preferences
+      final blockedAppsList = prefs.getStringList('blocked_apps');
+
+      // Start V2Ray with raw JSON config
+      await _flutterV2ray.startV2Ray(
+        remark: remark,
+        config: rawConfig,
+        blockedApps: blockedAppsList,
+        bypassSubnets: bypassSubnets,
+        proxyOnly: statusProxy,
+        notificationDisconnectButtonName: "DISCONNECT",
+      );
+
+      final customConfig = V2RayConfig(
+        id: 'custom:${DateTime.now().millisecondsSinceEpoch}',
+        remark: remark,
+        address: '',
+        port: 0,
+        configType: 'custom',
+        fullConfig: rawConfig,
+      );
+      _activeConfig = customConfig;
+      _lastConnectionTime = DateTime.now();
+
+      // Save active config to persistent storage
+      await _saveActiveConfig(customConfig);
+
+      // Start monitoring usage statistics
+      _startUsageMonitoring();
+
+      // Verify the connection was actually established
+      await Future.delayed(const Duration(milliseconds: 500));
+      final connectionVerified = await isActuallyConnected();
+      if (!connectionVerified) {
+        debugPrint('Raw config connection verification failed');
+        try {
+          await disconnect();
+        } catch (e) {
+          debugPrint('Error cleaning up failed raw config connection: $e');
+        }
+        return false;
+      }
+
+      return true;
+    } catch (e) {
+      debugPrint('Error connecting raw config: $e');
+      try {
+        await disconnect();
+      } catch (disconnectError) {
+        debugPrint(
+          'Error cleaning up after raw config failure: $disconnectError',
+        );
+      }
+      return false;
+    }
+  }
+
   Future<void> disconnect() async {
     try {
       // Stop usage monitoring

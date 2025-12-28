@@ -158,48 +158,54 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         final activeConfigFromService = _v2rayService.activeConfig;
         print('Active config from service: ${activeConfigFromService?.remark}');
 
-        if (activeConfigFromService != null) {
-          bool configFound = false;
+          if (activeConfigFromService != null) {
+            bool configFound = false;
 
-          // Try to find exact matching config
-          for (var config in _configs) {
-            if (config.fullConfig == activeConfigFromService.fullConfig) {
-              config.isConnected = true;
-              _selectedConfig = config;
-              configFound = true;
-              print('Found exact matching config: ${config.remark}');
-              break;
-            }
-          }
-
-          // If we couldn't find the exact active config in our list,
-          // try to find a matching one by address and port
-          if (!configFound) {
+            // Try to find exact matching config
             for (var config in _configs) {
-              if (config.address == activeConfigFromService.address &&
-                  config.port == activeConfigFromService.port) {
+              if (config.fullConfig == activeConfigFromService.fullConfig) {
                 config.isConnected = true;
                 _selectedConfig = config;
                 configFound = true;
-                print(
-                  'Found matching config by address/port: ${config.remark}',
-                );
+                print('Found exact matching config: ${config.remark}');
                 break;
               }
             }
-          }
 
-          // If still no matching config found, add the active config temporarily
-          if (!configFound) {
-            print('No matching config found in list for active VPN connection');
-            // Add the active config to our list temporarily
-            _configs.add(activeConfigFromService);
-            activeConfigFromService.isConnected = true;
-            _selectedConfig = activeConfigFromService;
-            print(
-              'Added active config to list: ${activeConfigFromService.remark}',
-            );
-          }
+            // If we couldn't find the exact active config in our list,
+            // try to find a matching one by address and port
+            if (!configFound) {
+              for (var config in _configs) {
+                if (config.address == activeConfigFromService.address &&
+                    config.port == activeConfigFromService.port) {
+                  config.isConnected = true;
+                  _selectedConfig = config;
+                  configFound = true;
+                  print(
+                    'Found matching config by address/port: ${config.remark}',
+                  );
+                  break;
+                }
+              }
+            }
+
+            // If still no matching config found, add the active config temporarily
+            if (!configFound) {
+              if (activeConfigFromService.configType == 'custom') {
+                _selectedConfig = null;
+                configFound = true;
+                print('Custom config active, skipping list insertion');
+              } else {
+                print('No matching config found in list for active VPN connection');
+                // Add the active config to our list temporarily
+                _configs.add(activeConfigFromService);
+                activeConfigFromService.isConnected = true;
+                _selectedConfig = activeConfigFromService;
+                print(
+                  'Added active config to list: ${activeConfigFromService.remark}',
+                );
+              }
+            }
         } else {
           // VPN is running but we don't have the config details
           // Try to find any config that might be connected
@@ -963,6 +969,62 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       await _v2rayService.saveConfigs(_configs);
     } catch (e) {
       _setError('Error disconnecting: $e');
+    } finally {
+      _isConnecting = false;
+      notifyListeners();
+    }
+  }
+
+  Future<void> connectToCustomConfigs(
+    List<Map<String, String>> presets,
+  ) async {
+    _isConnecting = true;
+    _errorMessage = '';
+    notifyListeners();
+
+    try {
+      if (_v2rayService.activeConfig != null) {
+        try {
+          await _v2rayService.disconnect();
+          await Future.delayed(const Duration(milliseconds: 500));
+        } catch (e) {
+          debugPrint('Error disconnecting from current server: $e');
+        }
+      }
+
+      bool success = false;
+      for (final preset in presets) {
+        final remark = preset['remark'] ?? 'Custom';
+        final rawConfig = preset['config'] ?? '';
+        if (rawConfig.isEmpty) {
+          continue;
+        }
+
+        success = await _v2rayService
+            .connectRawConfig(remark, rawConfig, _isProxyMode)
+            .timeout(
+              const Duration(seconds: 30),
+              onTimeout: () {
+                debugPrint('Custom config timeout for $remark');
+                return false;
+              },
+            );
+
+        if (success) {
+          await Future.delayed(const Duration(seconds: 1));
+          final verified = await _v2rayService.isActuallyConnected();
+          if (verified) {
+            break;
+          }
+          success = false;
+        }
+      }
+
+      if (!success) {
+        _setError('Failed to connect custom config');
+      }
+    } catch (e) {
+      _setError('Custom config error: $e');
     } finally {
       _isConnecting = false;
       notifyListeners();
