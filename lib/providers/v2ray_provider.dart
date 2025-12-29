@@ -8,6 +8,16 @@ import '../services/v2ray_service.dart';
 import '../services/server_service.dart';
 import '../utils/auto_select_util.dart';
 import '../utils/server_score_store.dart';
+const bool _suppressLogs = true;
+void _log(String message) {
+  if (!_suppressLogs) {
+    debugPrint(message);
+  }
+}
+
+void _logSmartFlow(String message) {
+  debugPrint(message);
+}
 
 class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   final V2RayService _v2rayService = V2RayService();
@@ -50,6 +60,15 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   ConnectMode get connectMode => _connectMode;
   SmartFlowState get smartFlowState => _smartFlowState;
   bool get adBlockEnabled => _adBlockEnabled;
+
+  void setSmartFlowState(SmartFlowState state) {
+    if (_smartFlowState == state) {
+      return;
+    }
+    _smartFlowState = state;
+    _logSmartFlow('SmartFlowState set -> ${state.name}');
+    notifyListeners();
+  }
 
   // Expose V2Ray status for real-time traffic monitoring
   V2RayStatus? get currentStatus => _v2rayService.currentStatus;
@@ -110,11 +129,11 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
       // Load configurations first
       await loadConfigs();
-      debugPrint('Loaded ${_configs.length} configs during initialization');
+      _log('Loaded ${_configs.length} configs during initialization');
 
       // Load subscriptions
       await loadSubscriptions();
-      debugPrint(
+      _log(
         'Loaded ${_subscriptions.length} subscriptions during initialization',
       );
 
@@ -130,9 +149,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       // Update all subscriptions on app start with fresh data
       // Only update if we have subscriptions to avoid unnecessary operations
       if (_subscriptions.isNotEmpty) {
-        debugPrint('Updating all subscriptions with fresh data...');
+        _log('Updating all subscriptions with fresh data...');
         await updateAllSubscriptions();
-        debugPrint('Finished updating all subscriptions');
+        _log('Finished updating all subscriptions');
       }
 
       // CRITICAL FIX: Enhanced synchronization with actual VPN service state
@@ -141,7 +160,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       notifyListeners();
     } catch (e) {
       _setError('Failed to initialize: $e');
-      debugPrint('Initialization error: $e');
+      _log('Initialization error: $e');
     } finally {
       _setLoading(false);
       _isInitializing = false; // Clear initialization flag
@@ -360,9 +379,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       _subscriptions = await _v2rayService.loadSubscriptions();
 
       // Debug information
-      debugPrint('Loaded ${_subscriptions.length} subscriptions');
+      _log('Loaded ${_subscriptions.length} subscriptions');
       for (var sub in _subscriptions) {
-        debugPrint(
+        _log(
           '  Subscription: ${sub.name} with ${sub.configIds.length} configs',
         );
       }
@@ -379,13 +398,13 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         );
         _subscriptions.add(defaultSubscription);
         await _v2rayService.saveSubscriptions(_subscriptions);
-        debugPrint('Created default subscription');
+        _log('Created default subscription');
       }
 
       // Ensure configs are loaded and match subscription config IDs
       if (_configs.isEmpty) {
         _configs = _filterOutShadowSocks(await _v2rayService.loadConfigs());
-        debugPrint('Loaded ${_configs.length} configs');
+        _log('Loaded ${_configs.length} configs');
       }
 
       // Verify that all subscription config IDs exist in the configs list
@@ -394,7 +413,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         final configIds = subscription.configIds;
         final existingConfigIds = _configs.map((c) => c.id).toSet();
 
-        debugPrint(
+        _log(
           'Subscription "${subscription.name}" has ${configIds.length} config IDs, ${existingConfigIds.length} existing configs',
         );
 
@@ -404,7 +423,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             .toList();
 
         if (missingConfigIds.isNotEmpty) {
-          debugPrint(
+          _log(
             'Warning: Found ${missingConfigIds.length} missing configs for subscription ${subscription.name}: $missingConfigIds',
           );
           // Update the subscription to remove missing config IDs
@@ -418,7 +437,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             _subscriptions[index] = subscription.copyWith(
               configIds: updatedConfigIds,
             );
-            debugPrint(
+            _log(
               'Updated subscription "${subscription.name}" to have ${updatedConfigIds.length} config IDs',
             );
           }
@@ -439,7 +458,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       return;
     }
     _configs.add(config);
-    debugPrint(
+    _log(
       'Added config: ${config.remark} (${config.id}) - Total configs: ${_configs.length}',
     );
 
@@ -450,15 +469,15 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> removeConfig(V2RayConfig config) async {
     try {
-      debugPrint('Removing config: ${config.remark} (${config.id})');
+      _log('Removing config: ${config.remark} (${config.id})');
       _configs.removeWhere((c) => c.id == config.id);
-      debugPrint('After removal - Total configs: ${_configs.length}');
+      _log('After removal - Total configs: ${_configs.length}');
 
       // Also remove from subscriptions if the config is part of any subscription
       for (int i = 0; i < _subscriptions.length; i++) {
         final subscription = _subscriptions[i];
         if (subscription.configIds.contains(config.id)) {
-          debugPrint('Removing config from subscription: ${subscription.name}');
+          _log('Removing config from subscription: ${subscription.name}');
           final updatedConfigIds = List<String>.from(subscription.configIds)
             ..remove(config.id);
           _subscriptions[i] = subscription.copyWith(
@@ -551,7 +570,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       final newConfigIds = configs.map((c) => c.id).toList();
 
       // Debug information
-      debugPrint(
+      _log(
         'Adding subscription "$name" with ${configs.length} configs and IDs: $newConfigIds',
       );
 
@@ -571,7 +590,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       await _v2rayService.saveSubscriptions(_subscriptions);
 
       // Debug information
-      debugPrint('Subscription "$name" added successfully');
+      _log('Subscription "$name" added successfully');
 
       // Update UI after everything is saved
       notifyListeners();
@@ -840,7 +859,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           // Add a small delay to ensure disconnection is complete
           await Future.delayed(const Duration(milliseconds: 500));
         } catch (e) {
-          debugPrint('Error disconnecting from current server: $e');
+          _log('Error disconnecting from current server: $e');
           // Continue with connection attempt even if disconnect failed
         }
       }
@@ -858,7 +877,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             cancelled = true;
             break;
           }
-          debugPrint(
+          _log(
             'Connection attempt $attempt/$maxAttempts for ${config.remark}',
           );
 
@@ -869,7 +888,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
               .timeout(
                 const Duration(seconds: 30), // Timeout for connection
                 onTimeout: () {
-                  debugPrint('Connection timeout for ${config.remark}');
+                  _log('Connection timeout for ${config.remark}');
                   return false;
                 },
               );
@@ -879,16 +898,16 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             break;
           }
           if (success) {
-            debugPrint('Connection successful for ${config.remark}');
+            _log('Connection successful for ${config.remark}');
             // Verify the connection is actually established
             await Future.delayed(const Duration(seconds: 1));
             final connectionVerified = await _v2rayService
                 .isActuallyConnected();
             if (connectionVerified) {
-              debugPrint('Connection verified for ${config.remark}');
+              _log('Connection verified for ${config.remark}');
               break;
             } else {
-              debugPrint('Connection verification failed for ${config.remark}');
+              _log('Connection verification failed for ${config.remark}');
               success = false;
               lastError = 'Connection verification failed';
             }
@@ -896,7 +915,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             // Connection failed but no exception was thrown
             lastError =
                 'Failed to connect to ${config.remark} on attempt $attempt';
-            debugPrint(lastError);
+            _log(lastError);
 
             // If this is not the last attempt, wait before retrying
             if (attempt < maxAttempts) {
@@ -907,10 +926,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           // Check if this is a timeout-related error
           if (e.toString().contains('timeout')) {
             lastError = 'Connection timeout on attempt $attempt: $e';
-            debugPrint(lastError);
+            _log(lastError);
           } else {
             lastError = 'Error on connection attempt $attempt: $e';
-            debugPrint(lastError);
+            _log(lastError);
           }
 
           // If this is not the last attempt, wait before retrying
@@ -947,7 +966,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           try {
             await _v2rayService.saveConfigs(_configs);
           } catch (e) {
-            debugPrint('Error saving configs after connection: $e');
+            _log('Error saving configs after connection: $e');
             // Don't fail the connection for this
           }
 
@@ -955,22 +974,21 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           try {
             await _v2rayService.resetUsageStats();
           } catch (e) {
-            debugPrint('Error resetting usage stats: $e');
+            _log('Error resetting usage stats: $e');
             // Don't fail the connection for this
           }
 
-          if (_connectMode == ConnectMode.normal) {
-            _smartFlowState = SmartFlowState.testing;
-            notifyListeners();
+          if (_connectMode == ConnectMode.normal && !_isAutoRecovering) {
+            setSmartFlowState(SmartFlowState.testing);
           }
 
           Future(() async {
             await _scoreConnectedServer(config);
           });
 
-          debugPrint('Successfully connected to ${config.remark}');
+          _log('Successfully connected to ${config.remark}');
         } catch (e) {
-          debugPrint('Error in post-connection setup: $e');
+          _log('Error in post-connection setup: $e');
           // Connection succeeded but post-setup failed
           _setError('Connected but failed to update settings: $e');
         }
@@ -987,7 +1005,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         }
       }
     } catch (e) {
-      debugPrint('Unexpected error in connection process: $e');
+      _log('Unexpected error in connection process: $e');
       _setError('Unexpected error connecting to ${config.remark}: $e');
     } finally {
       _isConnecting = false;
@@ -1001,8 +1019,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     }
     _isAutoRecovering = true;
     try {
-      _smartFlowState = SmartFlowState.searching;
-      notifyListeners();
+      setSmartFlowState(SmartFlowState.searching);
 
       while (!_smartFlowCancelled) {
         _autoRecoverCancellationToken?.cancel();
@@ -1013,8 +1030,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           excludeId: failedConfig.id,
         );
         if (candidates.isEmpty) {
-          _smartFlowState = SmartFlowState.idle;
-          notifyListeners();
+          setSmartFlowState(SmartFlowState.idle);
           return;
         }
 
@@ -1035,14 +1051,13 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
           final healthy = await _evaluateServerHealth(candidate);
           if (healthy) {
-            _smartFlowState = SmartFlowState.idle;
-            notifyListeners();
+            setSmartFlowState(SmartFlowState.idle);
             return;
           }
         }
       }
     } catch (e) {
-      debugPrint('Recover after failed connect error: $e');
+      _log('Recover after failed connect error: $e');
     } finally {
       _isAutoRecovering = false;
     }
@@ -1050,10 +1065,14 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> disconnect() async {
     _isConnecting = true;
-    _smartFlowState = SmartFlowState.idle;
+    if (!_isAutoRecovering) {
+      setSmartFlowState(SmartFlowState.idle);
+    }
     _autoRecoverCancellationToken?.cancel();
     _autoRecoverCancellationToken = null;
-    notifyListeners();
+    if (_isAutoRecovering) {
+      notifyListeners();
+    }
 
     try {
       await _v2rayService.disconnect();
@@ -1079,7 +1098,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     }
     _connectMode = mode;
     if (mode != ConnectMode.normal) {
-      _smartFlowState = SmartFlowState.idle;
+      setSmartFlowState(SmartFlowState.idle);
       _autoRecoverCancellationToken?.cancel();
       _autoRecoverCancellationToken = null;
     }
@@ -1124,7 +1143,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           await _v2rayService.disconnect();
           await Future.delayed(const Duration(milliseconds: 500));
         } catch (e) {
-          debugPrint('Error disconnecting from current server: $e');
+          _log('Error disconnecting from current server: $e');
         }
       }
 
@@ -1144,7 +1163,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             .timeout(
               const Duration(seconds: 30),
               onTimeout: () {
-                debugPrint('Custom config timeout for $remark');
+                _log('Custom config timeout for $remark');
                 return false;
               },
             );
@@ -1186,8 +1205,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       final existing = await ServerScoreStore.getScore(config.id);
       if (existing != null) {
         if (_connectMode == ConnectMode.normal) {
-          _smartFlowState = SmartFlowState.idle;
-          notifyListeners();
+          setSmartFlowState(SmartFlowState.idle);
         }
         return;
       }
@@ -1218,8 +1236,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         await ServerScoreStore.addBadServer(config.id);
         await ServerScoreStore.removeScore(config.id);
         if (_connectMode == ConnectMode.normal) {
-          _smartFlowState = SmartFlowState.searching;
-          notifyListeners();
+          setSmartFlowState(SmartFlowState.searching);
         }
         await _autoRecoverFromBadServer(config);
         return;
@@ -1251,11 +1268,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         ),
       );
       if (_connectMode == ConnectMode.normal) {
-        _smartFlowState = SmartFlowState.idle;
-        notifyListeners();
+        setSmartFlowState(SmartFlowState.idle);
       }
     } catch (e) {
-      debugPrint('Error scoring server ${config.remark}: $e');
+      _log('Error scoring server ${config.remark}: $e');
     }
   }
 
@@ -1268,9 +1284,8 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       return true;
     }
 
-    if (_connectMode == ConnectMode.normal) {
-      _smartFlowState = SmartFlowState.testing;
-      notifyListeners();
+    if (_connectMode == ConnectMode.normal && !_isAutoRecovering) {
+      setSmartFlowState(SmartFlowState.testing);
     }
 
     int pingValue = -1;
@@ -1399,6 +1414,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     }
     _isAutoRecovering = true;
     try {
+      if (_connectMode == ConnectMode.normal) {
+        setSmartFlowState(SmartFlowState.searching);
+      }
       var waitCycles = 0;
       while (_isConnecting && waitCycles < 10) {
         await Future.delayed(const Duration(milliseconds: 200));
@@ -1408,6 +1426,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         return;
       }
       await disconnect();
+      if (_connectMode == ConnectMode.normal && !_smartFlowCancelled) {
+        setSmartFlowState(SmartFlowState.searching);
+      }
 
       final mode = await ServerScoreStore.loadMode();
       final scores = await ServerScoreStore.loadScores();
@@ -1435,8 +1456,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
       if (candidates.isEmpty) {
         if (_connectMode == ConnectMode.normal) {
-          _smartFlowState = SmartFlowState.idle;
-          notifyListeners();
+          setSmartFlowState(SmartFlowState.idle);
         }
         return;
       }
@@ -1457,11 +1477,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         await selectConfig(result.selectedConfig!);
         await connectToServer(result.selectedConfig!, _isProxyMode);
       } else if (_connectMode == ConnectMode.normal) {
-        _smartFlowState = SmartFlowState.idle;
-        notifyListeners();
+        setSmartFlowState(SmartFlowState.idle);
       }
     } catch (e) {
-      debugPrint('Auto-recover failed for ${config.remark}: $e');
+      _log('Auto-recover failed for ${config.remark}: $e');
     } finally {
       _isAutoRecovering = false;
     }
@@ -1472,8 +1491,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     _cancelConnectRequested = true;
     _autoRecoverCancellationToken?.cancel();
     _autoRecoverCancellationToken = null;
-    _smartFlowState = SmartFlowState.idle;
-    notifyListeners();
+    setSmartFlowState(SmartFlowState.idle);
     await disconnect();
   }
 

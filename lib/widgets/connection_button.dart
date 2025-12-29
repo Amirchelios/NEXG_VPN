@@ -20,7 +20,6 @@ class ConnectionButton extends StatefulWidget {
 class _ConnectionButtonState extends State<ConnectionButton> {
   // Cancellation token for auto-select operation
   AutoSelectCancellationToken? _autoSelectCancellationToken;
-  bool _smartFlowDialogVisible = false;
 
   // Stream controller for status updates
   late final StreamController<String> _autoSelectStatusStream =
@@ -211,59 +210,6 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     await provider.connectToServer(selectedConfigs.first, provider.isProxyMode);
   }
 
-  Future<void> _showSmartFlowStatusDialog(
-    BuildContext context,
-    V2RayProvider provider,
-  ) async {
-    if (_smartFlowDialogVisible) return;
-    _smartFlowDialogVisible = true;
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.secondaryDark,
-        title: Text(context.tr(TranslationKeys.serverSelectionAutoSelect)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryGreen),
-            ),
-            const SizedBox(height: 16),
-            Text(context.tr(TranslationKeys.serverSelectionTestingServers)),
-            const SizedBox(height: 8),
-            StreamBuilder<String>(
-              stream: _autoSelectStatusStream.stream,
-              builder: (context, snapshot) {
-                return Text(
-                  snapshot.data ?? '',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                );
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () async {
-              await provider.cancelSmartFlowAndDisconnect();
-              if (mounted && Navigator.of(context).canPop()) {
-                Navigator.of(context).pop();
-              }
-            },
-            child: Text(
-              context.tr('common.cancel'),
-              style: const TextStyle(color: AppTheme.primaryGreen),
-            ),
-          ),
-        ],
-      ),
-    ).whenComplete(() {
-      _smartFlowDialogVisible = false;
-    });
-  }
-
   // Helper method to run auto-select and then connect
   Future<void> _runAutoSelectAndConnect(
     BuildContext context,
@@ -301,50 +247,6 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     // Create cancellation token for this auto-select operation
     _autoSelectCancellationToken = AutoSelectCancellationToken();
 
-    // Show a loading dialog while auto-select is running with cancel button
-    if (!mounted) return;
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.secondaryDark,
-        title: Text(context.tr(TranslationKeys.serverSelectionAutoSelect)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryGreen),
-            ),
-            const SizedBox(height: 16),
-            Text(context.tr(TranslationKeys.serverSelectionTestingServers)),
-            const SizedBox(height: 8),
-            StreamBuilder<String>(
-              stream: _autoSelectStatusStream.stream,
-              builder: (context, snapshot) {
-                return Text(
-                  snapshot.data ?? '',
-                  style: const TextStyle(fontSize: 12, color: Colors.grey),
-                );
-              },
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              // Cancel the auto-select operation
-              _autoSelectCancellationToken?.cancel();
-              Navigator.of(context).pop();
-            },
-            child: Text(
-              context.tr('common.cancel'),
-              style: const TextStyle(color: AppTheme.primaryGreen),
-            ),
-          ),
-        ],
-      ),
-    );
-
     try {
       AutoSelectResult result;
       if (mode == ServerScoreMode.scored) {
@@ -365,6 +267,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
         );
       } else {
         // Run auto-select algorithm with cancellation support and status updates
+        provider.setSmartFlowState(SmartFlowState.searching);
         result = await AutoSelectUtil.runAutoSelect(
           configs,
           provider.v2rayService,
@@ -378,14 +281,16 @@ class _ConnectionButtonState extends State<ConnectionButton> {
           },
           cancellationToken: _autoSelectCancellationToken,
         );
+        if (provider.connectMode == ConnectMode.normal) {
+          provider.setSmartFlowState(SmartFlowState.idle);
+        }
       }
 
       // Check if operation was cancelled
       if (!mounted) return;
       if (result.errorMessage == 'Auto-select cancelled') {
-        // Close the dialog
-        if (Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
+        if (provider.connectMode == ConnectMode.normal) {
+          provider.setSmartFlowState(SmartFlowState.idle);
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -394,11 +299,6 @@ class _ConnectionButtonState extends State<ConnectionButton> {
           ),
         );
         return;
-      }
-
-      // Close the dialog
-      if (Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
       }
 
       if (result.selectedConfig != null && result.bestPing != null) {
@@ -411,6 +311,9 @@ class _ConnectionButtonState extends State<ConnectionButton> {
       } else {
         // Show error message
         if (!mounted) return;
+        if (provider.connectMode == ConnectMode.normal) {
+          provider.setSmartFlowState(SmartFlowState.idle);
+        }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(result.errorMessage ?? 'Auto-select failed'),
@@ -419,13 +322,11 @@ class _ConnectionButtonState extends State<ConnectionButton> {
         );
       }
     } catch (e) {
-      // Close the dialog
-      if (Navigator.of(context).canPop()) {
-        Navigator.of(context).pop();
-      }
-
       // Show error message
       if (!mounted) return;
+      if (provider.connectMode == ConnectMode.normal) {
+        provider.setSmartFlowState(SmartFlowState.idle);
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Auto-select error: ${e.toString()}'),
@@ -813,16 +714,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
   Widget build(BuildContext context) {
     return Consumer<V2RayProvider>(
       builder: (context, provider, _) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          final shouldShow =
-              provider.smartFlowState != SmartFlowState.idle &&
-              provider.connectMode == ConnectMode.normal;
-          if (shouldShow) {
-            _showSmartFlowStatusDialog(context, provider);
-          } else if (_smartFlowDialogVisible && Navigator.of(context).canPop()) {
-            Navigator.of(context).pop();
-          }
-        });
+        WidgetsBinding.instance.addPostFrameCallback((_) {});
         // Show loading state while initializing
         if (provider.isInitializing) {
           return Container(
@@ -918,8 +810,9 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     required bool hasConfigs,
     required SmartFlowState smartFlowState,
   }) {
-    final effectiveConnecting =
-        isConnecting || smartFlowState == SmartFlowState.searching;
+    final isReplacing =
+        smartFlowState == SmartFlowState.searching && !isCustom;
+    final effectiveConnecting = isConnecting || isReplacing;
     return GestureDetector(
       onTap: () async {
         if (provider.isInitializing) {
@@ -927,7 +820,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
         }
 
         try {
-          if (isConnecting || smartFlowState != SmartFlowState.idle) {
+          if (isConnecting || isReplacing) {
             _autoSelectCancellationToken?.cancel();
             _autoSelectCancellationToken = null;
             if (mounted && Navigator.of(context).canPop()) {
@@ -1037,6 +930,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                   isConnected,
                   isConnecting,
                   isCustom,
+                  isReplacing,
                 ).withValues(alpha: 0.4),
                 blurRadius: 25,
                 spreadRadius: 2,
@@ -1059,6 +953,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                             isConnected,
                             effectiveConnecting,
                             isCustom,
+                            isReplacing,
                           ).withValues(alpha: 0.3),
                           width: 4,
                         ),
@@ -1082,6 +977,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                             isConnected,
                             effectiveConnecting,
                             isCustom,
+                            isReplacing,
                           ),
                           width: 3,
                         ),
@@ -1102,6 +998,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                             isConnected,
                             effectiveConnecting,
                             isCustom,
+                            isReplacing,
                           ).withValues(alpha: 0.7),
                           width: 2,
                         ),
@@ -1126,6 +1023,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                     isConnected,
                     effectiveConnecting,
                     isCustom,
+                    isReplacing,
                   ),
                   ),
                   boxShadow: [
@@ -1134,6 +1032,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                         isConnected,
                         effectiveConnecting,
                         isCustom,
+                        isReplacing,
                       ).withValues(alpha: 0.5),
                       blurRadius: 15,
                       offset: const Offset(0, 5),
@@ -1238,8 +1137,12 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     bool isConnected,
     bool isConnecting,
     bool isCustom,
+    bool isReplacing,
   ) {
     if (isConnecting) {
+      if (isReplacing && !isCustom) {
+        return Colors.amber;
+      }
       return isCustom ? AppTheme.primaryBlueDark : AppTheme.connectingBlue;
     }
     if (isConnected) {
@@ -1252,8 +1155,15 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     bool isConnected,
     bool isConnecting,
     bool isCustom,
+    bool isReplacing,
   ) {
     if (isConnecting) {
+      if (isReplacing && !isCustom) {
+        return [
+          Colors.amber,
+          Colors.amber.withValues(alpha: 0.7),
+        ];
+      }
       return isCustom
           ? [
               AppTheme.primaryBlueDark,
@@ -1298,6 +1208,9 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     bool isCustom,
     SmartFlowState smartFlowState,
   ) {
+    if (!isCustom && smartFlowState == SmartFlowState.searching) {
+      return 'در حال جایگزینی سرور';
+    }
     if (isConnecting) return 'در حال اتصال...';
     if (!isCustom && smartFlowState == SmartFlowState.testing) {
       return 'در حال تست سرور';
