@@ -836,46 +836,90 @@ class _ConnectionButtonState extends State<ConnectionButton> {
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              width: 220,
               height: 220,
-              child: PageView(
-                controller: _pageController,
-                physics:
-                    isConnected ||
-                            isConnecting ||
-                            provider.smartFlowState != SmartFlowState.idle
-                    ? const NeverScrollableScrollPhysics()
-                    : const BouncingScrollPhysics(),
-                clipBehavior: Clip.none,
-                onPageChanged: (index) {
-                  setState(() {
-                    _pageIndex = index;
-                  });
-                  provider.setConnectMode(
-                    index == 1 ? ConnectMode.smart : ConnectMode.normal,
-                  );
-                },
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  _buildConnectButton(
-                    context,
-                    provider,
-                    isCustom: false,
-                    isConnected: isConnected,
-                    isConnecting: isConnecting,
-                    selectedConfig: selectedConfig,
-                    hasConfigs: hasConfigs,
-                    smartFlowState: provider.smartFlowState,
+                  Center(
+                    child: SizedBox(
+                      width: 220,
+                      height: 220,
+                      child: PageView(
+                    controller: _pageController,
+                    physics:
+                        isConnected ||
+                                isConnecting ||
+                                provider.smartFlowState != SmartFlowState.idle
+                        ? const NeverScrollableScrollPhysics()
+                        : const BouncingScrollPhysics(),
+                    clipBehavior: Clip.none,
+                    onPageChanged: (index) {
+                      setState(() {
+                        _pageIndex = index;
+                      });
+                      provider.setConnectMode(
+                        index == 1 ? ConnectMode.smart : ConnectMode.normal,
+                      );
+                    },
+                    children: [
+                      _buildConnectButton(
+                        context,
+                        provider,
+                        isCustom: false,
+                        isConnected: isConnected,
+                        isConnecting: isConnecting,
+                        selectedConfig: selectedConfig,
+                        hasConfigs: hasConfigs,
+                        smartFlowState: provider.smartFlowState,
+                      ),
+                      _buildConnectButton(
+                        context,
+                        provider,
+                        isCustom: true,
+                        isConnected: isConnected,
+                        isConnecting: isConnecting,
+                        selectedConfig: selectedConfig,
+                        hasConfigs: hasConfigs,
+                        smartFlowState: provider.smartFlowState,
+                      ),
+                    ],
+                      ),
+                    ),
                   ),
-                  _buildConnectButton(
-                    context,
-                    provider,
-                    isCustom: true,
-                    isConnected: isConnected,
-                    isConnecting: isConnecting,
-                    selectedConfig: selectedConfig,
-                    hasConfigs: hasConfigs,
-                    smartFlowState: provider.smartFlowState,
-                  ),
+                  if (!isConnected &&
+                      !isConnecting &&
+                      provider.smartFlowState == SmartFlowState.idle &&
+                      _pageIndex == 0)
+                    Positioned(
+                      right: 0,
+                      child: _buildPageArrow(
+                        icon: Icons.arrow_forward_ios,
+                        onTap: () {
+                          _pageController.animateToPage(
+                            1,
+                            duration: const Duration(milliseconds: 420),
+                            curve: Curves.easeInOutCubic,
+                          );
+                        },
+                      ),
+                    ),
+                  if (!isConnected &&
+                      !isConnecting &&
+                      provider.smartFlowState == SmartFlowState.idle &&
+                      _pageIndex == 1)
+                    Positioned(
+                      left: 0,
+                      child: _buildPageArrow(
+                        icon: Icons.arrow_back_ios_new,
+                        onTap: () {
+                          _pageController.animateToPage(
+                            0,
+                            duration: const Duration(milliseconds: 420),
+                            curve: Curves.easeInOutCubic,
+                          );
+                        },
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -1007,8 +1051,8 @@ class _ConnectionButtonState extends State<ConnectionButton> {
       },
       child: AnimatedScale(
         scale: effectiveConnecting ? 1.05 : 1.0,
-        duration: const Duration(milliseconds: 600),
-        curve: Curves.easeInOut,
+        duration: const Duration(milliseconds: 800),
+        curve: Curves.easeInOutCubic,
         child: Container(
           width: 210,
           height: 210,
@@ -1055,7 +1099,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                       onPlay: (controller) =>
                           controller.repeat(reverse: true),
                     )
-                    .scaleXY(end: 1.2, duration: 1000.ms),
+                    .scaleXY(end: 1.2, duration: 1400.ms),
 
               // Outer animated ring (only visible when connecting)
             if (effectiveConnecting)
@@ -1077,7 +1121,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                       ),
                     )
                     .animate(onPlay: (controller) => controller.repeat())
-                    .rotate(duration: 2000.ms, begin: 0, end: 1),
+                    .rotate(duration: 2800.ms, begin: 0, end: 1),
 
               // Middle ring
             if (effectiveConnecting)
@@ -1102,7 +1146,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                       onPlay: (controller) =>
                           controller.repeat(reverse: true),
                     )
-                    .scaleXY(end: 1.1, duration: 1500.ms),
+                    .scaleXY(end: 1.1, duration: 2000.ms),
 
               // Main button with enhanced design
               Container(
@@ -1223,6 +1267,42 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                 ),
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPageArrow({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppTheme.cardDark.withValues(alpha: 0.9),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: 0.15),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Icon(
+            icon,
+            size: 20,
+            color: Colors.white,
           ),
         ),
       ),
