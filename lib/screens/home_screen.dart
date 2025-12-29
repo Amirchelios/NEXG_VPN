@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/v2ray_provider.dart';
 import '../providers/language_provider.dart';
 import '../utils/app_localizations.dart';
@@ -19,6 +21,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  Map<String, dynamic>? _profileData;
+
   @override
   void initState() {
     super.initState();
@@ -26,6 +30,7 @@ class _HomeScreenState extends State<HomeScreen> {
     // Listen for connection state changes
     final v2rayProvider = Provider.of<V2RayProvider>(context, listen: false);
     v2rayProvider.addListener(_onProviderChanged);
+    _loadProfileData();
   }
 
   void _onProviderChanged() {
@@ -34,6 +39,19 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     super.dispose();
+  }
+
+  Future<void> _loadProfileData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString('profile_data');
+    if (raw == null) return;
+    try {
+      final data = jsonDecode(raw) as Map<String, dynamic>;
+      if (!mounted) return;
+      setState(() {
+        _profileData = data;
+      });
+    } catch (_) {}
   }
 
 
@@ -194,6 +212,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
+                                _buildUserProfileCard(),
+
+                                const SizedBox(height: 16),
+
                                 // Server selector (now includes Proxy Mode Switch)
                                 const ServerSelector(),
 
@@ -309,5 +331,197 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
+  }
+
+  Widget _buildUserProfileCard() {
+    final userName = (_profileData?['name'] ?? '-') as String;
+    final phoneNumber = (_profileData?['phone'] ?? '-') as String;
+    final activationDate = (_profileData?['start_jalali'] ?? '-') as String;
+    final expiryDate = (_profileData?['expiry_jalali'] ?? '-') as String;
+    final totalDays = _dateDiffInDays(activationDate, expiryDate);
+    final remainingDays = _dateDiffFromNow(expiryDate);
+    final progressValue = totalDays <= 0
+        ? 0.0
+        : (totalDays - remainingDays) / totalDays;
+
+    return Consumer<WallpaperService>(
+      builder: (context, wallpaperService, _) {
+        final isGlassBackground = wallpaperService.isGlassBackgroundEnabled;
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 20),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          color: isGlassBackground
+              ? AppTheme.cardDark.withOpacity(0.75)
+              : AppTheme.cardDark,
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'پروفایل شما',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          expiryDate,
+                          style: const TextStyle(
+                            color: AppTheme.textGrey,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              userName,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              'شماره: $phoneNumber',
+                              style: const TextStyle(
+                                color: AppTheme.textGrey,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: AppTheme.surfaceContainer,
+                          ),
+                          child: const Icon(
+                            Icons.person,
+                            color: Colors.white,
+                            size: 24,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'انقضا: $expiryDate',
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Text(
+                      'تاریخ ساخت: $activationDate',
+                      style: const TextStyle(
+                        color: AppTheme.textGrey,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'از $totalDays روز',
+                      style: const TextStyle(
+                        color: AppTheme.textGrey,
+                        fontSize: 11,
+                      ),
+                    ),
+                    Text(
+                      'زمان باقی مانده: $remainingDays روز',
+                      style: const TextStyle(
+                        color: AppTheme.textGrey,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(10),
+                  child: Stack(
+                    children: [
+                      Container(
+                        height: 8,
+                        color: AppTheme.surfaceContainer,
+                      ),
+                      FractionallySizedBox(
+                        widthFactor: progressValue.clamp(0.0, 1.0),
+                        child: Container(
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [
+                                AppTheme.primaryBlue,
+                                AppTheme.primaryGreen,
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  int _dateDiffInDays(String start, String end) {
+    final startDate = _parseDate(start);
+    final endDate = _parseDate(end);
+    if (startDate == null || endDate == null) {
+      return 0;
+    }
+    return endDate.difference(startDate).inDays.abs();
+  }
+
+  int _dateDiffFromNow(String end) {
+    final endDate = _parseDate(end);
+    if (endDate == null) {
+      return 0;
+    }
+    return endDate.difference(DateTime.now()).inDays;
+  }
+
+  DateTime? _parseDate(String value) {
+    final parts = value.split('/');
+    if (parts.length != 3) return null;
+    final year = int.tryParse(parts[0]);
+    final month = int.tryParse(parts[1]);
+    final day = int.tryParse(parts[2]);
+    if (year == null || month == null || day == null) return null;
+    return DateTime(year, month, day);
   }
 }

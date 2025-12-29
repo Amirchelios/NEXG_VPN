@@ -8,6 +8,7 @@ import 'providers/language_provider.dart';
 import 'services/wallpaper_service.dart';
 import 'screens/main_navigation_screen.dart';
 import 'screens/privacy_welcome_screen.dart';
+import 'screens/activation_screen.dart';
 import 'services/update_service.dart';
 import 'theme/app_theme.dart';
 import 'dart:async';
@@ -22,19 +23,27 @@ void main() async {
   // Check if user has accepted privacy policy
   final prefs = await SharedPreferences.getInstance();
   final bool privacyAccepted = prefs.getBool('privacy_accepted') ?? false;
+  final bool isActivated =
+      (prefs.getString('activation_code') ?? '').trim().isNotEmpty;
 
   runApp(
-    MyApp(privacyAccepted: privacyAccepted, languageProvider: languageProvider),
+    MyApp(
+      privacyAccepted: privacyAccepted,
+      isActivated: isActivated,
+      languageProvider: languageProvider,
+    ),
   );
 }
 
 class MyApp extends StatefulWidget {
   final bool privacyAccepted;
+  final bool isActivated;
   final LanguageProvider languageProvider;
 
   const MyApp({
     super.key,
     required this.privacyAccepted,
+    required this.isActivated,
     required this.languageProvider,
   });
 
@@ -122,7 +131,9 @@ class _MyAppState extends State<MyApp> {
               Locale('fa'), // Persian
             ],
             home: widget.privacyAccepted
-                ? const MainNavigationScreen()
+                ? (widget.isActivated
+                    ? const MainNavigationScreen()
+                    : const ActivationScreen())
                 : const PrivacyWelcomeScreen(),
           );
         },
