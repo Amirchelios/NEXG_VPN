@@ -852,17 +852,18 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
     final mode = await ServerScoreStore.loadMode();
     if (!mounted) return;
     final hasScores = scores.isNotEmpty;
+    final bool noConfigs = widget.configs.isEmpty;
     final hasNew = widget.configs.any((c) => !scores.containsKey(c.id));
-    final shouldLockNew = hasScores && !hasNew;
+    final shouldLockNew = noConfigs || (hasScores && !hasNew);
     final nextMode = shouldLockNew ? ServerScoreMode.scored : mode;
     setState(() {
       _serverScores = scores;
       _badServerIds = badIds;
       _hasScores = hasScores;
-      _scoreMode = hasScores ? nextMode : ServerScoreMode.discover;
+      _scoreMode = nextMode;
       _newLocked = shouldLockNew;
     });
-    if (!hasScores && mode == ServerScoreMode.scored) {
+    if (!hasScores && !shouldLockNew && mode == ServerScoreMode.scored) {
       await ServerScoreStore.saveMode(ServerScoreMode.discover);
     } else if (shouldLockNew && mode != ServerScoreMode.scored) {
       await ServerScoreStore.saveMode(ServerScoreMode.scored);
@@ -1102,11 +1103,16 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
         children: [
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: SplitModeButton(
-              mode: _scoreMode,
-              scoredEnabled: _hasScores,
-              discoverEnabled: !_newLocked,
-              onChanged: _setScoreMode,
+            child: Consumer<V2RayProvider>(
+              builder: (context, provider, _) {
+                final isXConnect = provider.connectMode == ConnectMode.normal;
+                return SplitModeButton(
+                  mode: _scoreMode,
+                  scoredEnabled: _hasScores && isXConnect,
+                  discoverEnabled: !_newLocked && isXConnect,
+                  onChanged: _setScoreMode,
+                );
+              },
             ),
           ),
           Container(

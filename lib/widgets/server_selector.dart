@@ -41,19 +41,19 @@ class _ServerSelectorState extends State<ServerSelector> {
     final mode = await ServerScoreStore.loadMode();
     if (!mounted) return;
     final hasScores = scores.isNotEmpty;
+    final bool noConfigs = configs != null && configs.isEmpty;
     final hasNew = configs != null
         ? configs.any((c) => !scores.containsKey(c.id))
         : true;
-    final shouldLockNew = hasScores && !hasNew;
+    final shouldLockNew = noConfigs || (hasScores && !hasNew);
     final nextMode = shouldLockNew ? ServerScoreMode.scored : mode;
     setState(() {
       _serverScores = scores;
       _hasScores = hasScores;
-      _scoreMode =
-          hasScores ? nextMode : ServerScoreMode.discover;
+      _scoreMode = nextMode;
       _newLocked = shouldLockNew;
     });
-    if (!hasScores && mode == ServerScoreMode.scored) {
+    if (!hasScores && !shouldLockNew && mode == ServerScoreMode.scored) {
       await ServerScoreStore.saveMode(ServerScoreMode.discover);
     } else if (shouldLockNew && mode != ServerScoreMode.scored) {
       await ServerScoreStore.saveMode(ServerScoreMode.scored);
@@ -183,8 +183,10 @@ class _ServerSelectorState extends State<ServerSelector> {
             const SizedBox(height: 12),
             SplitModeButton(
               mode: _scoreMode,
-              scoredEnabled: _hasScores,
-              discoverEnabled: !_newLocked,
+              scoredEnabled:
+                  _hasScores && provider.connectMode == ConnectMode.normal,
+              discoverEnabled:
+                  !_newLocked && provider.connectMode == ConnectMode.normal,
               onChanged: _setScoreMode,
             ),
           ],
