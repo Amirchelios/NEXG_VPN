@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -25,6 +26,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _profileData;
   bool _isRefreshingProfile = false;
+  Timer? _profileRefreshTimer;
+  DateTime? _nextProfileRefreshAllowedAt;
 
   @override
   void initState() {
@@ -34,12 +37,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final v2rayProvider = Provider.of<V2RayProvider>(context, listen: false);
     v2rayProvider.addListener(_onProviderChanged);
     _loadProfileData();
+    _profileRefreshTimer = Timer.periodic(
+      const Duration(minutes: 10),
+      (_) => _refreshProfileData(),
+    );
   }
 
   void _onProviderChanged() {}
 
   @override
   void dispose() {
+    _profileRefreshTimer?.cancel();
     super.dispose();
   }
 
@@ -58,6 +66,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _refreshProfileData() async {
     if (_isRefreshingProfile) return;
+    final now = DateTime.now();
+    if (_nextProfileRefreshAllowedAt != null &&
+        now.isBefore(_nextProfileRefreshAllowedAt!)) {
+      return;
+    }
     final prefs = await SharedPreferences.getInstance();
     final code = (prefs.getString('activation_code') ?? '').trim();
     if (code.isEmpty) {
@@ -78,11 +91,13 @@ class _HomeScreenState extends State<HomeScreen> {
       _isRefreshingProfile = true;
     });
     try {
+      _nextProfileRefreshAllowedAt =
+          DateTime.now().add(const Duration(minutes: 1));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('در حال بروزرسانی پروفایل...'),
-          backgroundColor: AppTheme.cardDark,
+          backgroundColor: AppTheme.primaryBlue,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
@@ -507,7 +522,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(width: 12),
                         GestureDetector(
-                          onTap: _isRefreshingProfile
+                          onTap: _isRefreshingProfile ||
+                                  (_nextProfileRefreshAllowedAt != null &&
+                                      DateTime.now().isBefore(
+                                        _nextProfileRefreshAllowedAt!,
+                                      ))
                               ? null
                               : _refreshProfileData,
                           child: AnimatedRotation(
