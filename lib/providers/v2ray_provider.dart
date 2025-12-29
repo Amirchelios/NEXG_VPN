@@ -8,6 +8,7 @@ import '../services/v2ray_service.dart';
 import '../services/server_service.dart';
 import '../utils/auto_select_util.dart';
 import '../utils/server_score_store.dart';
+
 const bool _suppressLogs = true;
 void _log(String message) {
   if (!_suppressLogs) {
@@ -191,54 +192,56 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         final activeConfigFromService = _v2rayService.activeConfig;
         print('Active config from service: ${activeConfigFromService?.remark}');
 
-          if (activeConfigFromService != null) {
-            bool configFound = false;
+        if (activeConfigFromService != null) {
+          bool configFound = false;
 
-            // Try to find exact matching config
+          // Try to find exact matching config
+          for (var config in _configs) {
+            if (config.fullConfig == activeConfigFromService.fullConfig) {
+              config.isConnected = true;
+              _selectedConfig = config;
+              configFound = true;
+              print('Found exact matching config: ${config.remark}');
+              break;
+            }
+          }
+
+          // If we couldn't find the exact active config in our list,
+          // try to find a matching one by address and port
+          if (!configFound) {
             for (var config in _configs) {
-              if (config.fullConfig == activeConfigFromService.fullConfig) {
+              if (config.address == activeConfigFromService.address &&
+                  config.port == activeConfigFromService.port) {
                 config.isConnected = true;
                 _selectedConfig = config;
                 configFound = true;
-                print('Found exact matching config: ${config.remark}');
+                print(
+                  'Found matching config by address/port: ${config.remark}',
+                );
                 break;
               }
             }
+          }
 
-            // If we couldn't find the exact active config in our list,
-            // try to find a matching one by address and port
-            if (!configFound) {
-              for (var config in _configs) {
-                if (config.address == activeConfigFromService.address &&
-                    config.port == activeConfigFromService.port) {
-                  config.isConnected = true;
-                  _selectedConfig = config;
-                  configFound = true;
-                  print(
-                    'Found matching config by address/port: ${config.remark}',
-                  );
-                  break;
-                }
-              }
+          // If still no matching config found, add the active config temporarily
+          if (!configFound) {
+            if (activeConfigFromService.configType == 'custom') {
+              _selectedConfig = null;
+              configFound = true;
+              print('Custom config active, skipping list insertion');
+            } else {
+              print(
+                'No matching config found in list for active VPN connection',
+              );
+              // Add the active config to our list temporarily
+              _configs.add(activeConfigFromService);
+              activeConfigFromService.isConnected = true;
+              _selectedConfig = activeConfigFromService;
+              print(
+                'Added active config to list: ${activeConfigFromService.remark}',
+              );
             }
-
-            // If still no matching config found, add the active config temporarily
-            if (!configFound) {
-              if (activeConfigFromService.configType == 'custom') {
-                _selectedConfig = null;
-                configFound = true;
-                print('Custom config active, skipping list insertion');
-              } else {
-                print('No matching config found in list for active VPN connection');
-                // Add the active config to our list temporarily
-                _configs.add(activeConfigFromService);
-                activeConfigFromService.isConnected = true;
-                _selectedConfig = activeConfigFromService;
-                print(
-                  'Added active config to list: ${activeConfigFromService.remark}',
-                );
-              }
-            }
+          }
         } else {
           // VPN is running but we don't have the config details
           // Try to find any config that might be connected
@@ -877,9 +880,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             cancelled = true;
             break;
           }
-          _log(
-            'Connection attempt $attempt/$maxAttempts for ${config.remark}',
-          );
+          _log('Connection attempt $attempt/$maxAttempts for ${config.remark}');
 
           // Connect to server with timeout
           final useXConnectDns = _connectMode == ConnectMode.normal;
@@ -978,9 +979,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             // Don't fail the connection for this
           }
 
-          if (_connectMode == ConnectMode.normal &&
-              (!_isAutoRecovering ||
-                  _smartFlowState != SmartFlowState.searching)) {
+          if (_connectMode == ConnectMode.normal && !_isAutoRecovering) {
             setSmartFlowState(SmartFlowState.testing);
           }
 
@@ -1041,9 +1040,6 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             return;
           }
           await selectConfig(candidate);
-          if (_connectMode == ConnectMode.normal) {
-            setSmartFlowState(SmartFlowState.testing);
-          }
           await connectToServer(candidate, _isProxyMode);
           if (_smartFlowCancelled) {
             return;
@@ -1133,9 +1129,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     }
   }
 
-  Future<void> connectToCustomConfigs(
-    List<Map<String, String>> presets,
-  ) async {
+  Future<void> connectToCustomConfigs(List<Map<String, String>> presets) async {
     _isConnecting = true;
     _errorMessage = '';
     _smartFlowCancelled = false;
@@ -1296,7 +1290,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     int pingValue = -1;
     try {
       final ping = await _v2rayService
-          .getServerDelay(config, cancellationToken: _autoRecoverCancellationToken)
+          .getServerDelay(
+            config,
+            cancellationToken: _autoRecoverCancellationToken,
+          )
           .timeout(const Duration(seconds: 6), onTimeout: () => -1);
       pingValue = ping ?? -1;
     } catch (_) {
@@ -1365,12 +1362,13 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     final badIds = await ServerScoreStore.loadBadServerIds();
     final scoredIds = scores.keys.toSet();
 
-    final candidates = (mode == ServerScoreMode.scored
-            ? _configs.where((c) => scoredIds.contains(c.id))
-            : _configs.where((c) => !scoredIds.contains(c.id)))
-        .where((c) => c.id != excludeId)
-        .where((c) => !badIds.contains(c.id))
-        .toList();
+    final candidates =
+        (mode == ServerScoreMode.scored
+                ? _configs.where((c) => scoredIds.contains(c.id))
+                : _configs.where((c) => !scoredIds.contains(c.id)))
+            .where((c) => c.id != excludeId)
+            .where((c) => !badIds.contains(c.id))
+            .toList();
 
     if (candidates.isEmpty) {
       return [];
@@ -1385,7 +1383,10 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       final batch = candidates.skip(i).take(batchSize).toList();
       final futures = batch.map((config) async {
         final delay = await _v2rayService
-            .getServerDelay(config, cancellationToken: _autoRecoverCancellationToken)
+            .getServerDelay(
+              config,
+              cancellationToken: _autoRecoverCancellationToken,
+            )
             .timeout(const Duration(seconds: 6), onTimeout: () => -1);
         return MapEntry(config, delay ?? -1);
       }).toList();
@@ -1442,15 +1443,15 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
       var candidates = mode == ServerScoreMode.scored
           ? _configs
-              .where((c) => scoredIds.contains(c.id))
-              .where((c) => !badIds.contains(c.id))
-              .where((c) => c.id != config.id)
-              .toList()
+                .where((c) => scoredIds.contains(c.id))
+                .where((c) => !badIds.contains(c.id))
+                .where((c) => c.id != config.id)
+                .toList()
           : _configs
-              .where((c) => !scoredIds.contains(c.id))
-              .where((c) => !badIds.contains(c.id))
-              .where((c) => c.id != config.id)
-              .toList();
+                .where((c) => !scoredIds.contains(c.id))
+                .where((c) => !badIds.contains(c.id))
+                .where((c) => c.id != config.id)
+                .toList();
 
       if (candidates.isEmpty) {
         candidates = _configs
@@ -1479,11 +1480,8 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       }
 
       if (result.selectedConfig != null) {
-          await selectConfig(result.selectedConfig!);
-          if (_connectMode == ConnectMode.normal) {
-            setSmartFlowState(SmartFlowState.testing);
-          }
-          await connectToServer(result.selectedConfig!, _isProxyMode);
+        await selectConfig(result.selectedConfig!);
+        await connectToServer(result.selectedConfig!, _isProxyMode);
       } else if (_connectMode == ConnectMode.normal) {
         setSmartFlowState(SmartFlowState.idle);
       }
