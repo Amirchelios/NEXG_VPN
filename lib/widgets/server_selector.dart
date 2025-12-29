@@ -22,6 +22,7 @@ class _ServerSelectorState extends State<ServerSelector> {
   ServerScoreMode _scoreMode = ServerScoreMode.discover;
   bool _hasScores = false;
   bool _isRefreshing = false;
+  bool _newLocked = false;
   Map<String, ServerScore> _serverScores = {};
   late final PageController _modeController = PageController();
   ConnectMode? _lastConnectMode;
@@ -38,25 +39,37 @@ class _ServerSelectorState extends State<ServerSelector> {
     super.dispose();
   }
 
-  Future<void> _refreshScoreState() async {
+  Future<void> _refreshScoreState({List<V2RayConfig>? configs}) async {
     if (_isRefreshing) return;
     _isRefreshing = true;
     final scores = await ServerScoreStore.loadScores();
     final mode = await ServerScoreStore.loadMode();
     if (!mounted) return;
     final hasScores = scores.isNotEmpty;
+    final hasNew = configs != null
+        ? configs.any((c) => !scores.containsKey(c.id))
+        : true;
+    final shouldLockNew = hasScores && !hasNew;
+    final nextMode = shouldLockNew ? ServerScoreMode.scored : mode;
     setState(() {
       _serverScores = scores;
       _hasScores = hasScores;
-      _scoreMode = hasScores ? mode : ServerScoreMode.discover;
+      _scoreMode =
+          hasScores ? nextMode : ServerScoreMode.discover;
+      _newLocked = shouldLockNew;
     });
     if (!hasScores && mode == ServerScoreMode.scored) {
       await ServerScoreStore.saveMode(ServerScoreMode.discover);
+    } else if (shouldLockNew && mode != ServerScoreMode.scored) {
+      await ServerScoreStore.saveMode(ServerScoreMode.scored);
     }
     _isRefreshing = false;
   }
 
   Future<void> _setScoreMode(ServerScoreMode mode) async {
+    if (_newLocked && mode == ServerScoreMode.discover) {
+      return;
+    }
     if (!_hasScores && mode == ServerScoreMode.scored) {
       return;
     }
@@ -143,7 +156,7 @@ class _ServerSelectorState extends State<ServerSelector> {
     return Consumer3<V2RayProvider, LanguageProvider, WallpaperService>(
       builder: (context, provider, languageProvider, wallpaperService, _) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          _refreshScoreState();
+          _refreshScoreState(configs: provider.configs);
           if (_lastConnectMode != provider.connectMode) {
             _lastConnectMode = provider.connectMode;
             final pageIndex =
@@ -225,6 +238,7 @@ class _ServerSelectorState extends State<ServerSelector> {
             SplitModeButton(
               mode: _scoreMode,
               scoredEnabled: _hasScores,
+              discoverEnabled: !_newLocked,
               onChanged: _setScoreMode,
             ),
             const SizedBox(height: 12),

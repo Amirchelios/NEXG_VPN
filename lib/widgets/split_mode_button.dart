@@ -5,12 +5,14 @@ import '../utils/server_score_store.dart';
 class SplitModeButton extends StatelessWidget {
   final ServerScoreMode mode;
   final bool scoredEnabled;
+  final bool discoverEnabled;
   final ValueChanged<ServerScoreMode> onChanged;
 
   const SplitModeButton({
     super.key,
     required this.mode,
     required this.scoredEnabled,
+    required this.discoverEnabled,
     required this.onChanged,
   });
 
@@ -39,7 +41,10 @@ class SplitModeButton extends StatelessWidget {
             active: leftActive,
             label: 'New',
             icon: Icons.flash_on,
-            onTap: () => onChanged(ServerScoreMode.discover),
+            locked: !discoverEnabled,
+            onTap: discoverEnabled
+                ? () => onChanged(ServerScoreMode.discover)
+                : null,
           ),
           _SplitDivider(),
           _SplitSide(

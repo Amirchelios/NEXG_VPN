@@ -45,6 +45,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
   Map<String, ServerScore> _serverScores = {};
   Set<String> _badServerIds = {};
   bool _hasScores = false;
+  bool _newLocked = false;
   ServerScoreMode _scoreMode = ServerScoreMode.discover;
 
   // Add the missing _originalOrder field
@@ -851,18 +852,27 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
     final mode = await ServerScoreStore.loadMode();
     if (!mounted) return;
     final hasScores = scores.isNotEmpty;
+    final hasNew = widget.configs.any((c) => !scores.containsKey(c.id));
+    final shouldLockNew = hasScores && !hasNew;
+    final nextMode = shouldLockNew ? ServerScoreMode.scored : mode;
     setState(() {
       _serverScores = scores;
       _badServerIds = badIds;
       _hasScores = hasScores;
-      _scoreMode = hasScores ? mode : ServerScoreMode.discover;
+      _scoreMode = hasScores ? nextMode : ServerScoreMode.discover;
+      _newLocked = shouldLockNew;
     });
     if (!hasScores && mode == ServerScoreMode.scored) {
       await ServerScoreStore.saveMode(ServerScoreMode.discover);
+    } else if (shouldLockNew && mode != ServerScoreMode.scored) {
+      await ServerScoreStore.saveMode(ServerScoreMode.scored);
     }
   }
 
   Future<void> _setScoreMode(ServerScoreMode mode) async {
+    if (_newLocked && mode == ServerScoreMode.discover) {
+      return;
+    }
     if (!_hasScores && mode == ServerScoreMode.scored) {
       return;
     }
@@ -1095,6 +1105,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
             child: SplitModeButton(
               mode: _scoreMode,
               scoredEnabled: _hasScores,
+              discoverEnabled: !_newLocked,
               onChanged: _setScoreMode,
             ),
           ),
