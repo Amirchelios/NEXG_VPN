@@ -844,45 +844,64 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                     child: SizedBox(
                       width: 220,
                       height: 220,
-                      child: PageView(
-                    controller: _pageController,
-                    physics:
-                        isConnected ||
-                                isConnecting ||
-                                provider.smartFlowState != SmartFlowState.idle
-                        ? const NeverScrollableScrollPhysics()
-                        : const BouncingScrollPhysics(),
-                    clipBehavior: Clip.none,
-                    onPageChanged: (index) {
-                      setState(() {
-                        _pageIndex = index;
-                      });
-                      provider.setConnectMode(
-                        index == 1 ? ConnectMode.smart : ConnectMode.normal,
-                      );
-                    },
-                    children: [
-                      _buildConnectButton(
-                        context,
-                        provider,
-                        isCustom: false,
-                        isConnected: isConnected,
-                        isConnecting: isConnecting,
-                        selectedConfig: selectedConfig,
-                        hasConfigs: hasConfigs,
-                        smartFlowState: provider.smartFlowState,
-                      ),
-                      _buildConnectButton(
-                        context,
-                        provider,
-                        isCustom: true,
-                        isConnected: isConnected,
-                        isConnecting: isConnecting,
-                        selectedConfig: selectedConfig,
-                        hasConfigs: hasConfigs,
-                        smartFlowState: provider.smartFlowState,
-                      ),
-                    ],
+                      child: AnimatedBuilder(
+                        animation: _pageController,
+                        builder: (context, child) {
+                          final page = _pageController.hasClients
+                              ? (_pageController.page ??
+                                  _pageIndex.toDouble())
+                              : _pageIndex.toDouble();
+                          return PageView(
+                            controller: _pageController,
+                            physics: isConnected ||
+                                    isConnecting ||
+                                    provider.smartFlowState !=
+                                        SmartFlowState.idle
+                                ? const NeverScrollableScrollPhysics()
+                                : const BouncingScrollPhysics(),
+                            clipBehavior: Clip.none,
+                            onPageChanged: (index) {
+                              setState(() {
+                                _pageIndex = index;
+                              });
+                              provider.setConnectMode(
+                                index == 1
+                                    ? ConnectMode.smart
+                                    : ConnectMode.normal,
+                              );
+                            },
+                            children: [
+                              Opacity(
+                                opacity:
+                                    (1 - (page - 0).abs()).clamp(0.0, 1.0),
+                                child: _buildConnectButton(
+                                  context,
+                                  provider,
+                                  isCustom: false,
+                                  isConnected: isConnected,
+                                  isConnecting: isConnecting,
+                                  selectedConfig: selectedConfig,
+                                  hasConfigs: hasConfigs,
+                                  smartFlowState: provider.smartFlowState,
+                                ),
+                              ),
+                              Opacity(
+                                opacity:
+                                    (1 - (page - 1).abs()).clamp(0.0, 1.0),
+                                child: _buildConnectButton(
+                                  context,
+                                  provider,
+                                  isCustom: true,
+                                  isConnected: isConnected,
+                                  isConnecting: isConnecting,
+                                  selectedConfig: selectedConfig,
+                                  hasConfigs: hasConfigs,
+                                  smartFlowState: provider.smartFlowState,
+                                ),
+                              ),
+                            ],
+                          );
+                        },
                       ),
                     ),
                   ),
