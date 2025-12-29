@@ -49,9 +49,15 @@ class _ActivationScreenState extends State<ActivationScreen> {
           jsonDecode(response.body) as Map<String, dynamic>;
       final status = data['status'] == true;
       final redeemStatus = data['redeem_status'] == true;
-      if (!status || !redeemStatus) {
+      if (!status) {
         setState(() {
           _errorText = 'کد نا معتبر است';
+        });
+        return;
+      }
+      if (!redeemStatus) {
+        setState(() {
+          _errorText = 'این کد قبلا استفاده شده است';
         });
         return;
       }

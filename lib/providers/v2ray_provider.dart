@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_v2ray_client/flutter_v2ray.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/v2ray_config.dart';
 import '../models/subscription.dart';
@@ -23,6 +24,8 @@ void _logSmartFlow(String message) {
 class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   final V2RayService _v2rayService = V2RayService();
   final ServerService _serverService = ServerService();
+  static const String _masterSubscriptionUrl =
+      'https://raw.githubusercontent.com/Amirchelios/NG_manager/refs/heads/main/sl.txt';
   bool statusPingOnly = false;
   List<V2RayConfig> _configs = [];
   List<Subscription> _subscriptions = [];
@@ -747,6 +750,25 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     _v2rayService.clearPingCache();
 
     try {
+      final masterUrls = await _loadSubscriptionUrlsFromMaster();
+      if (masterUrls.isEmpty) {
+        _setError('No subscription links found');
+        return;
+      }
+
+      _subscriptions = masterUrls.map((url) {
+        final uri = Uri.tryParse(url);
+        final name = uri?.host.isNotEmpty == true ? uri!.host : url;
+        return Subscription(
+          id: url.hashCode.toString(),
+          name: name,
+          url: url,
+          lastUpdated: DateTime.now(),
+          configIds: const [],
+        );
+      }).toList();
+      await _v2rayService.saveSubscriptions(_subscriptions);
+
       // Make a copy to avoid modification during iteration
       final subscriptionsCopy = List<Subscription>.from(_subscriptions);
       bool anyUpdated = false;
@@ -827,6 +849,25 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       _isLoadingServers = false;
       _isUpdatingSubscriptions = false; // Clear update state
       notifyListeners(); // Notify listeners that update state has changed
+    }
+  }
+
+  Future<List<String>> _loadSubscriptionUrlsFromMaster() async {
+    try {
+      final response = await http.get(Uri.parse(_masterSubscriptionUrl));
+      if (response.statusCode != 200) {
+        _setError('Failed to load subscription links');
+        return [];
+      }
+      final lines = response.body.split('\n');
+      final urls = lines
+          .map((line) => line.trim())
+          .where((line) => line.isNotEmpty && !line.startsWith('#'))
+          .toList();
+      return urls;
+    } catch (e) {
+      _setError('Failed to load subscription links: $e');
+      return [];
     }
   }
 
