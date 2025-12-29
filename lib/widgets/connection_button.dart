@@ -47,6 +47,169 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     _pageInitialized = true;
   }
 
+  String _countryCodeToFlag(String countryCode) {
+    if (countryCode.length != 2) {
+      return countryCode.toUpperCase();
+    }
+    final base = countryCode.toUpperCase().codeUnits;
+    return String.fromCharCodes(
+      base.map((codeUnit) => 127397 + codeUnit),
+    );
+  }
+
+  Future<void> _showScoredCountryPickerAndConnect(
+    BuildContext context,
+    V2RayProvider provider,
+  ) async {
+    final mode = await ServerScoreStore.loadMode();
+    if (mode != ServerScoreMode.scored) {
+      return;
+    }
+
+    final scores = await ServerScoreStore.loadScores();
+    final badIds = await ServerScoreStore.loadBadServerIds();
+    final scoredIds = scores.keys.toSet();
+
+    final scoredConfigs = provider.configs
+        .where((c) => scoredIds.contains(c.id))
+        .where((c) => !badIds.contains(c.id))
+        .toList();
+
+    if (scoredConfigs.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No scored servers available'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final Map<String, List<V2RayConfig>> grouped = {};
+    final Map<String, String> countryNames = {};
+
+    for (final config in scoredConfigs) {
+      final score = scores[config.id];
+      if (score == null) continue;
+      final code = score.countryCode.trim();
+      if (code.isEmpty) continue;
+      grouped.putIfAbsent(code, () => []).add(config);
+      if (score.country.isNotEmpty) {
+        countryNames[code] = score.country;
+      }
+    }
+
+    if (grouped.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No scored countries available'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    final selectedCode = await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        final codes = grouped.keys.toList()..sort();
+        return AlertDialog(
+          backgroundColor: AppTheme.secondaryDark,
+          title: const Text(
+            'Select Country',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: GridView.builder(
+              shrinkWrap: true,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                mainAxisSpacing: 12,
+                crossAxisSpacing: 12,
+              ),
+              itemCount: codes.length,
+              itemBuilder: (context, index) {
+                final code = codes[index];
+                final flag = _countryCodeToFlag(code);
+                final label = countryNames[code] ?? code.toUpperCase();
+                return InkWell(
+                  onTap: () => Navigator.of(context).pop(code),
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardDark,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(
+                        color: AppTheme.primaryGreen.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          flag,
+                          style: const TextStyle(fontSize: 28),
+                        ),
+                        const SizedBox(height: 6),
+                        Text(
+                          label,
+                          textAlign: TextAlign.center,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 10,
+                            color: Colors.white70,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: AppTheme.primaryGreen),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (selectedCode == null || selectedCode.isEmpty) {
+      return;
+    }
+
+    final selectedConfigs = grouped[selectedCode] ?? [];
+    if (selectedConfigs.isEmpty) {
+      return;
+    }
+
+    selectedConfigs.sort((a, b) {
+      final scoreA = scores[a.id]?.score ?? 0;
+      final scoreB = scores[b.id]?.score ?? 0;
+      if (scoreA != scoreB) {
+        return scoreB.compareTo(scoreA);
+      }
+      final pingA = scores[a.id]?.ping ?? 10000;
+      final pingB = scores[b.id]?.ping ?? 10000;
+      return pingA.compareTo(pingB);
+    });
+
+    await provider.connectToServer(selectedConfigs.first, provider.isProxyMode);
+  }
+
   // Helper method to run auto-select and then connect
   Future<void> _runAutoSelectAndConnect(
     BuildContext context,
@@ -737,6 +900,10 @@ class _ConnectionButtonState extends State<ConnectionButton> {
 
           if (selectedConfig != null) {
             final mode = await ServerScoreStore.loadMode();
+            if (mode == ServerScoreMode.scored) {
+              await _showScoredCountryPickerAndConnect(context, provider);
+              return;
+            }
             final scores = await ServerScoreStore.loadScores();
             final badIds = await ServerScoreStore.loadBadServerIds();
             final scoredIds = scores.keys.toSet();
@@ -754,6 +921,11 @@ class _ConnectionButtonState extends State<ConnectionButton> {
               provider.isProxyMode,
             );
           } else if (hasConfigs) {
+            final mode = await ServerScoreStore.loadMode();
+            if (mode == ServerScoreMode.scored) {
+              await _showScoredCountryPickerAndConnect(context, provider);
+              return;
+            }
             await _runAutoSelectAndConnect(context, provider);
           } else {
             if (!mounted) return;
