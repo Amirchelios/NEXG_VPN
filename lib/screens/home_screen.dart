@@ -36,8 +36,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _loadProfileData();
   }
 
-  void _onProviderChanged() {
-  }
+  void _onProviderChanged() {}
 
   @override
   void dispose() {
@@ -145,7 +144,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
   }
-
 
   // Share V2Ray link to clipboard
   void _shareV2RayLink(BuildContext context) async {
@@ -255,8 +253,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       return IconButton(
                         icon: Icon(
                           enabled ? Icons.security : Icons.security_outlined,
-                          color:
-                              enabled ? AppTheme.primaryGreen : Colors.white,
+                          color: enabled ? AppTheme.primaryGreen : Colors.white,
                         ),
                         onPressed: () async {
                           await provider.setAdBlockEnabled(!enabled);
@@ -438,17 +435,21 @@ class _HomeScreenState extends State<HomeScreen> {
     final expiryDate = (_profileData?['expiry_jalali'] ?? '-') as String;
     final totalDays = _dateDiffInDays(activationDate, expiryDate);
     final remainingDays = _dateDiffFromNow(expiryDate);
-    final normalizedRemaining =
-        remainingDays < 0 ? 0 : (remainingDays > totalDays ? totalDays : remainingDays);
-    final remainingRatio =
-        totalDays <= 0 ? 0.0 : normalizedRemaining / totalDays;
+    final normalizedRemaining = remainingDays < 0
+        ? 0
+        : (remainingDays > totalDays ? totalDays : remainingDays);
+    final remainingRatio = totalDays <= 0
+        ? 0.0
+        : normalizedRemaining / totalDays;
 
     return Consumer<WallpaperService>(
       builder: (context, wallpaperService, _) {
         final isGlassBackground = wallpaperService.isGlassBackgroundEnabled;
         return Card(
           margin: const EdgeInsets.symmetric(horizontal: 20),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
           color: isGlassBackground
               ? AppTheme.cardDark.withOpacity(0.75)
               : AppTheme.cardDark,
@@ -570,8 +571,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: remainingDays <= 3
                             ? Colors.redAccent
                             : (remainingDays <= 10
-                                ? Colors.amber
-                                : AppTheme.primaryGreen),
+                                  ? Colors.amber
+                                  : AppTheme.primaryGreen),
                         fontSize: 11,
                         fontWeight: FontWeight.w600,
                       ),
@@ -583,10 +584,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   borderRadius: BorderRadius.circular(10),
                   child: Stack(
                     children: [
-                      Container(
-                        height: 8,
-                        color: AppTheme.surfaceContainer,
-                      ),
+                      Container(height: 8, color: AppTheme.surfaceContainer),
                       Positioned.fill(
                         child: Align(
                           alignment: Alignment.centerRight,
@@ -637,13 +635,27 @@ class _HomeScreenState extends State<HomeScreen> {
             Icon(Icons.info_outline, color: Colors.redAccent, size: 18),
             SizedBox(width: 8),
             Expanded(
-              child: Text(
-                'دسترسی شما توسط ادمین در حالت تعلیق در آمده است',
-                style: TextStyle(
-                  color: Colors.redAccent,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'پیام دسترسی شما توسط ادمین در حالت تعلیق در آمده است',
+                    style: TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'برای ارتباط با ادمین کلیک کنید',
+                    style: TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

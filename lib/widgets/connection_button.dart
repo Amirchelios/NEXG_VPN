@@ -1075,217 +1075,254 @@ class _ConnectionButtonState extends State<ConnectionButton> {
         scale: effectiveConnecting ? 1.05 : 1.0,
         duration: const Duration(milliseconds: 600),
         curve: Curves.easeInOut,
-        child: Container(
+        child: SizedBox(
           width: 210,
           height: 210,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: _getButtonColor(
-                  isConnected,
-                  isConnecting,
-                  isCustom,
-                  isReplacing,
-                  isTesting,
-                ).withValues(alpha: 0.4),
-                blurRadius: 25,
-                spreadRadius: 2,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
           child: Stack(
             alignment: Alignment.center,
             children: [
-              // Pulsing background ring (only visible when connecting)
-              if (effectiveConnecting)
-                Container(
-                      width: 210,
-                      height: 210,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: _getButtonColor(
-                            isConnected,
-                            effectiveConnecting,
-                            isCustom,
-                            isReplacing,
-                            isTesting,
-                          ).withValues(alpha: 0.3),
-                          width: 4,
-                        ),
+              Opacity(
+                opacity: widget.isEnabled ? 1.0 : 0.5,
+                child: Container(
+                  width: 210,
+                  height: 210,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: _getButtonColor(
+                          isConnected,
+                          isConnecting,
+                          isCustom,
+                          isReplacing,
+                          isTesting,
+                        ).withValues(alpha: 0.4),
+                        blurRadius: 25,
+                        spreadRadius: 2,
+                        offset: const Offset(0, 8),
                       ),
-                    )
-                    .animate(
-                      onPlay: (controller) => controller.repeat(reverse: true),
-                    )
-                    .scaleXY(end: 1.2, duration: 1000.ms),
-
-              // Outer animated ring (only visible when connecting)
-              if (effectiveConnecting)
-                Container(
-                      width: 200,
-                      height: 200,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: _getButtonColor(
-                            isConnected,
-                            effectiveConnecting,
-                            isCustom,
-                            isReplacing,
-                            isTesting,
-                          ),
-                          width: 3,
-                        ),
-                      ),
-                    )
-                    .animate(onPlay: (controller) => controller.repeat())
-                    .rotate(duration: 2000.ms, begin: 0, end: 1),
-
-              // Middle ring
-              if (effectiveConnecting)
-                Container(
-                      width: 170,
-                      height: 170,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: _getButtonColor(
-                            isConnected,
-                            effectiveConnecting,
-                            isCustom,
-                            isReplacing,
-                            isTesting,
-                          ).withValues(alpha: 0.7),
-                          width: 2,
-                        ),
-                      ),
-                    )
-                    .animate(
-                      onPlay: (controller) => controller.repeat(reverse: true),
-                    )
-                    .scaleXY(end: 1.1, duration: 1500.ms),
-
-              // Main button with enhanced design
-              Container(
-                width: 160,
-                height: 160,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: _getGradientColors(
-                      isConnected,
-                      effectiveConnecting,
-                      isCustom,
-                      isReplacing,
-                      isTesting,
-                    ),
+                    ],
                   ),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _getButtonColor(
-                        isConnected,
-                        effectiveConnecting,
-                        isCustom,
-                        isReplacing,
-                        isTesting,
-                      ).withValues(alpha: 0.5),
-                      blurRadius: 15,
-                      offset: const Offset(0, 5),
-                    ),
-                  ],
-                ),
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    // Inner glow effect
-                    Container(
-                      width: 150,
-                      height: 150,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: RadialGradient(
-                          colors: [
-                            Colors.white.withValues(alpha: 0.2),
-                            Colors.transparent,
+                  child: Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      // Pulsing background ring (only visible when connecting)
+                      if (effectiveConnecting)
+                        Container(
+                              width: 210,
+                              height: 210,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: _getButtonColor(
+                                    isConnected,
+                                    effectiveConnecting,
+                                    isCustom,
+                                    isReplacing,
+                                    isTesting,
+                                  ).withValues(alpha: 0.3),
+                                  width: 4,
+                                ),
+                              ),
+                            )
+                            .animate(
+                              onPlay: (controller) => controller.repeat(reverse: true),
+                            )
+                            .scaleXY(end: 1.2, duration: 1000.ms),
+
+                      // Outer animated ring (only visible when connecting)
+                      if (effectiveConnecting)
+                        Container(
+                              width: 200,
+                              height: 200,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: _getButtonColor(
+                                    isConnected,
+                                    effectiveConnecting,
+                                    isCustom,
+                                    isReplacing,
+                                    isTesting,
+                                  ),
+                                  width: 3,
+                                ),
+                              ),
+                            )
+                            .animate(onPlay: (controller) => controller.repeat())
+                            .rotate(duration: 2000.ms, begin: 0, end: 1),
+
+                      // Middle ring
+                      if (effectiveConnecting)
+                        Container(
+                              width: 170,
+                              height: 170,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: _getButtonColor(
+                                    isConnected,
+                                    effectiveConnecting,
+                                    isCustom,
+                                    isReplacing,
+                                    isTesting,
+                                  ).withValues(alpha: 0.7),
+                                  width: 2,
+                                ),
+                              ),
+                            )
+                            .animate(
+                              onPlay: (controller) => controller.repeat(reverse: true),
+                            )
+                            .scaleXY(end: 1.1, duration: 1500.ms),
+
+                      // Main button with enhanced design
+                      Container(
+                        width: 160,
+                        height: 160,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: _getGradientColors(
+                              isConnected,
+                              effectiveConnecting,
+                              isCustom,
+                              isReplacing,
+                              isTesting,
+                            ),
+                          ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _getButtonColor(
+                                isConnected,
+                                effectiveConnecting,
+                                isCustom,
+                                isReplacing,
+                                isTesting,
+                              ).withValues(alpha: 0.5),
+                              blurRadius: 15,
+                              offset: const Offset(0, 5),
+                            ),
+                          ],
+                        ),
+                        child: Stack(
+                          alignment: Alignment.center,
+                          children: [
+                            // Inner glow effect
+                            Container(
+                              width: 150,
+                              height: 150,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: RadialGradient(
+                                  colors: [
+                                    Colors.white.withValues(alpha: 0.2),
+                                    Colors.transparent,
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            // Icon with label
+                            Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  _getButtonIcon(isConnected, effectiveConnecting),
+                                  color: Colors.white,
+                                  size: 54,
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _getButtonText(
+                                    isConnected,
+                                    effectiveConnecting,
+                                    hasConfigs,
+                                    isCustom,
+                                    smartFlowState,
+                                  ),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: isCustom ? 0.6 : 0.2,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+
+                            if (isCustom)
+                              Positioned(
+                                top: 14,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.16),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: Colors.white.withValues(alpha: 0.35),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'SMART',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 9,
+                                      fontWeight: FontWeight.w700,
+                                      letterSpacing: 1.2,
+                                    ),
+                                  ),
+                                ),
+                              ),
+
+                            // Progress indicator when connecting
+                            if (effectiveConnecting)
+                              Positioned.fill(
+                                child: CircularProgressIndicator(
+                                  valueColor: const AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                  strokeWidth: 3,
+                                ),
+                              ),
                           ],
                         ),
                       ),
-                    ),
-
-                    // Icon with label
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _getButtonIcon(isConnected, effectiveConnecting),
-                          color: Colors.white,
-                          size: 54,
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _getButtonText(
-                            isConnected,
-                            effectiveConnecting,
-                            hasConfigs,
-                            isCustom,
-                            smartFlowState,
-                          ),
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: isCustom ? 0.6 : 0.2,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-
-                    if (isCustom)
-                      Positioned(
-                        top: 14,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.16),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.white.withValues(alpha: 0.35),
-                            ),
-                          ),
-                          child: const Text(
-                            'SMART',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                        ),
-                      ),
-
-                    // Progress indicator when connecting
-                    if (effectiveConnecting)
-                      Positioned.fill(
-                        child: CircularProgressIndicator(
-                          valueColor: const AlwaysStoppedAnimation<Color>(
-                            Colors.white,
-                          ),
-                          strokeWidth: 3,
-                        ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
+              if (!widget.isEnabled)
+                Positioned(
+                  top: 10,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.45),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.35),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.link, color: Colors.white, size: 14),
+                        SizedBox(width: 6),
+                        Icon(Icons.lock, color: Colors.white, size: 14),
+                      ],
+                    ),
+                  ),
+                ),
             ],
           ),
         ),
