@@ -1036,6 +1036,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                 color: _getButtonColor(
                   isConnected,
                   isConnecting,
+                  isCustom,
                 ).withValues(alpha: 0.4),
                 blurRadius: 25,
                 spreadRadius: 2,
@@ -1057,6 +1058,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                           color: _getButtonColor(
                             isConnected,
                             effectiveConnecting,
+                            isCustom,
                           ).withValues(alpha: 0.3),
                           width: 4,
                         ),
@@ -1079,6 +1081,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                           color: _getButtonColor(
                             isConnected,
                             effectiveConnecting,
+                            isCustom,
                           ),
                           width: 3,
                         ),
@@ -1098,6 +1101,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                           color: _getButtonColor(
                             isConnected,
                             effectiveConnecting,
+                            isCustom,
                           ).withValues(alpha: 0.7),
                           width: 2,
                         ),
@@ -1121,6 +1125,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                   colors: _getGradientColors(
                     isConnected,
                     effectiveConnecting,
+                    isCustom,
                   ),
                   ),
                   boxShadow: [
@@ -1128,6 +1133,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                       color: _getButtonColor(
                         isConnected,
                         effectiveConnecting,
+                        isCustom,
                       ).withValues(alpha: 0.5),
                       blurRadius: 15,
                       offset: const Offset(0, 5),
@@ -1170,15 +1176,43 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                             isCustom,
                             smartFlowState,
                           ),
-                          style: const TextStyle(
+                          style: TextStyle(
                             color: Colors.white,
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
+                            letterSpacing: isCustom ? 0.6 : 0.2,
                           ),
                           textAlign: TextAlign.center,
                         ),
                       ],
                     ),
+
+                    if (isCustom)
+                      Positioned(
+                        top: 14,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white.withValues(alpha: 0.16),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.white.withValues(alpha: 0.35),
+                            ),
+                          ),
+                          child: const Text(
+                            'SMART',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.2,
+                            ),
+                          ),
+                        ),
+                      ),
 
                     // Progress indicator when connecting
                     if (effectiveConnecting)
@@ -1200,27 +1234,55 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     );
   }
 
-  Color _getButtonColor(bool isConnected, bool isConnecting) {
-    if (isConnecting) return AppTheme.connectingBlue;
-    return isConnected ? AppTheme.connectedGreen : AppTheme.disconnectedRed;
+  Color _getButtonColor(
+    bool isConnected,
+    bool isConnecting,
+    bool isCustom,
+  ) {
+    if (isConnecting) {
+      return isCustom ? AppTheme.primaryBlueDark : AppTheme.connectingBlue;
+    }
+    if (isConnected) {
+      return isCustom ? AppTheme.primaryBlue : AppTheme.connectedGreen;
+    }
+    return isCustom ? AppTheme.primaryBlueDark : AppTheme.disconnectedRed;
   }
 
-  List<Color> _getGradientColors(bool isConnected, bool isConnecting) {
+  List<Color> _getGradientColors(
+    bool isConnected,
+    bool isConnecting,
+    bool isCustom,
+  ) {
     if (isConnecting) {
-      return [
-        AppTheme.connectingBlue,
-        AppTheme.connectingBlue.withValues(alpha: 0.7),
-      ];
+      return isCustom
+          ? [
+              AppTheme.primaryBlueDark,
+              AppTheme.primaryBlue.withValues(alpha: 0.7),
+            ]
+          : [
+              AppTheme.connectingBlue,
+              AppTheme.connectingBlue.withValues(alpha: 0.7),
+            ];
     } else if (isConnected) {
-      return [
-        AppTheme.connectedGreen,
-        AppTheme.connectedGreen.withValues(alpha: 0.7),
-      ];
+      return isCustom
+          ? [
+              AppTheme.primaryBlue,
+              AppTheme.primaryBlueDark.withValues(alpha: 0.7),
+            ]
+          : [
+              AppTheme.connectedGreen,
+              AppTheme.connectedGreen.withValues(alpha: 0.7),
+            ];
     } else {
-      return [
-        AppTheme.disconnectedRed,
-        AppTheme.disconnectedRed.withValues(alpha: 0.7),
-      ];
+      return isCustom
+          ? [
+              AppTheme.primaryBlueDark,
+              AppTheme.primaryBlue.withValues(alpha: 0.7),
+            ]
+          : [
+              AppTheme.disconnectedRed,
+              AppTheme.disconnectedRed.withValues(alpha: 0.7),
+            ];
     }
   }
 
