@@ -863,8 +863,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
           );
 
           // Connect to server with timeout
+          final useXConnectDns = _connectMode == ConnectMode.normal;
           success = await _v2rayService
-              .connect(config, isProxyMode)
+              .connect(config, isProxyMode, useXConnectDns: useXConnectDns)
               .timeout(
                 const Duration(seconds: 30), // Timeout for connection
                 onTimeout: () {

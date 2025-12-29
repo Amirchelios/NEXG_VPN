@@ -225,7 +225,11 @@ class V2RayService extends ChangeNotifier {
     }
   }
 
-  Future<bool> connect(V2RayConfig config, bool statusProxy) async {
+  Future<bool> connect(
+    V2RayConfig config,
+    bool statusProxy, {
+    bool useXConnectDns = false,
+  }) async {
     try {
       await initialize();
 
@@ -270,7 +274,13 @@ class V2RayService extends ChangeNotifier {
       final bool adBlockEnabled = prefs.getBool('adblock_enabled') ?? false;
 
       // Apply custom DNS settings if enabled
-      if (dnsEnabled && dnsServers.isNotEmpty) {
+      if (useXConnectDns) {
+        parser.dns = {
+          "servers": adBlockEnabled
+              ? ["94.140.14.14", "94.140.15.15"]
+              : ["8.8.8.8"],
+        };
+      } else if (dnsEnabled && dnsServers.isNotEmpty) {
         // Split the DNS servers string into a list (one per line)
         List<String> serversList = dnsServers.trim().split('\n');
         // Remove any empty entries
