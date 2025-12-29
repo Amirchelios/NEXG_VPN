@@ -56,6 +56,9 @@ class V2RayService extends ChangeNotifier {
   static const List<String> _adBlockDnsServers = [
     'https://dns.adguard-dns.com/dns-query',
     'https://security.cloudflare-dns.com/dns-query',
+    'https://dns.quad9.net/dns-query',
+    'https://dns.nextdns.io',
+    'tls://dns.adguard-dns.com',
   ];
 
   Future<void> Function()? _onDisconnected;
