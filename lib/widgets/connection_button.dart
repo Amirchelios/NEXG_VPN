@@ -11,7 +11,9 @@ import '../utils/app_localizations.dart';
 import '../utils/server_score_store.dart';
 
 class ConnectionButton extends StatefulWidget {
-  const ConnectionButton({super.key});
+  final bool isEnabled;
+
+  const ConnectionButton({super.key, this.isEnabled = true});
 
   @override
   State<ConnectionButton> createState() => _ConnectionButtonState();
@@ -952,6 +954,22 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     final isBusy = isConnecting || smartFlowState != SmartFlowState.idle;
     return GestureDetector(
       onTap: () async {
+        if (!widget.isEnabled) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text(
+                'دسترسی شما توسط ادمین در حالت تعلیق در آمده است',
+              ),
+              backgroundColor: Colors.redAccent,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+          );
+          return;
+        }
         if (provider.isInitializing) {
           return;
         }

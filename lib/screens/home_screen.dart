@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import '../providers/v2ray_provider.dart';
 import '../providers/language_provider.dart';
 import '../utils/app_localizations.dart';
@@ -22,6 +24,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _profileData;
+  bool _isRefreshingProfile = false;
 
   @override
   void initState() {
@@ -52,6 +55,95 @@ class _HomeScreenState extends State<HomeScreen> {
         _profileData = data;
       });
     } catch (_) {}
+  }
+
+  Future<void> _refreshProfileData() async {
+    if (_isRefreshingProfile) return;
+    final prefs = await SharedPreferences.getInstance();
+    final code = (prefs.getString('activation_code') ?? '').trim();
+    if (code.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('کد فعال سازی یافت نشد'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+      return;
+    }
+    setState(() {
+      _isRefreshingProfile = true;
+    });
+    try {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('در حال بروزرسانی پروفایل...'),
+          backgroundColor: AppTheme.cardDark,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+      final url = Uri.parse(
+        'https://raw.githubusercontent.com/Amirchelios/NG_manager/refs/heads/main/control_user/$code',
+      );
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        await prefs.setString('profile_data', jsonEncode(data));
+        if (!mounted) return;
+        setState(() {
+          _profileData = data;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('اطلاعات پروفایل بروزرسانی شد'),
+            backgroundColor: AppTheme.primaryGreen,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      } else {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('بروزرسانی پروفایل ناموفق بود'),
+            backgroundColor: Colors.redAccent,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+            ),
+          ),
+        );
+      }
+    } catch (_) {
+      // Ignore refresh errors for now.
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Text('خطا در بروزرسانی پروفایل'),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshingProfile = false;
+        });
+      }
+    }
   }
 
 
@@ -222,7 +314,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const SizedBox(height: 20),
 
                                 // Connection button
-                                const ConnectionButton(),
+                                ConnectionButton(
+                                  isEnabled: !_isAccessSuspended(),
+                                ),
 
                                 const SizedBox(height: 40),
                               ],
@@ -234,6 +328,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   Consumer<V2RayProvider>(
                     builder: (context, provider, _) {
+                      if (_isAccessSuspended()) {
+                        return _buildSuspendedBanner();
+                      }
+
                       if (provider.activeConfig == null ||
                           provider.connectMode == ConnectMode.smart) {
                         return const SizedBox.shrink();
@@ -407,17 +505,27 @@ class _HomeScreenState extends State<HomeScreen> {
                           ],
                         ),
                         const SizedBox(width: 12),
-                        Container(
-                          width: 48,
-                          height: 48,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppTheme.surfaceContainer,
-                          ),
-                          child: const Icon(
-                            Icons.person,
-                            color: Colors.white,
-                            size: 24,
+                        GestureDetector(
+                          onTap: _isRefreshingProfile
+                              ? null
+                              : _refreshProfileData,
+                          child: AnimatedRotation(
+                            turns: _isRefreshingProfile ? 1.0 : 0.0,
+                            duration: const Duration(milliseconds: 700),
+                            curve: Curves.easeInOut,
+                            child: Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppTheme.surfaceContainer,
+                              ),
+                              child: const Icon(
+                                Icons.refresh,
+                                color: Colors.white,
+                                size: 24,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -510,6 +618,57 @@ class _HomeScreenState extends State<HomeScreen> {
         );
       },
     );
+  }
+
+  Widget _buildSuspendedBanner() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(20, 0, 20, 16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.redAccent.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
+      ),
+      child: InkWell(
+        onTap: _openAdminChat,
+        child: Row(
+          children: const [
+            Icon(Icons.info_outline, color: Colors.redAccent, size: 18),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'دسترسی شما توسط ادمین در حالت تعلیق در آمده است',
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  bool _isAccessSuspended() {
+    if (_profileData == null) return false;
+    return _profileData?['status'] == false;
+  }
+
+  Future<void> _openAdminChat() async {
+    try {
+      final url = Uri.parse(
+        'https://raw.githubusercontent.com/Amirchelios/NG_manager/refs/heads/main/admin.txt',
+      );
+      final response = await http.get(url);
+      if (response.statusCode != 200) return;
+      final adminId = response.body.trim();
+      if (adminId.isEmpty) return;
+      final tgUrl = Uri.parse('https://t.me/$adminId');
+      await launchUrl(tgUrl, mode: LaunchMode.externalApplication);
+    } catch (_) {}
   }
 
   int _dateDiffInDays(String start, String end) {
