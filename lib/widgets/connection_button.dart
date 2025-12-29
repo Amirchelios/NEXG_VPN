@@ -57,6 +57,23 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     );
   }
 
+  String _formatServerLocation(ServerScore? score, V2RayConfig config) {
+    if (score == null) {
+      return config.remark;
+    }
+    final parts = <String>[];
+    if (score.city.isNotEmpty) {
+      parts.add(score.city);
+    }
+    if (score.country.isNotEmpty) {
+      parts.add(score.country);
+    }
+    if (parts.isEmpty) {
+      return config.remark;
+    }
+    return parts.join(' • ');
+  }
+
   Future<void> _showScoredCountryPickerAndConnect(
     BuildContext context,
     V2RayProvider provider,
@@ -207,7 +224,77 @@ class _ConnectionButtonState extends State<ConnectionButton> {
       return pingA.compareTo(pingB);
     });
 
-    await provider.connectToServer(selectedConfigs.first, provider.isProxyMode);
+    if (selectedConfigs.length == 1) {
+      await provider.connectToServer(
+        selectedConfigs.first,
+        provider.isProxyMode,
+      );
+      return;
+    }
+
+    if (!mounted) return;
+    final pickedConfig = await showDialog<V2RayConfig>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppTheme.secondaryDark,
+          title: const Text(
+            'Select Server',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: selectedConfigs.length,
+              separatorBuilder: (_, __) => Divider(
+                color: Colors.white.withValues(alpha: 0.08),
+                height: 12,
+              ),
+              itemBuilder: (context, index) {
+                final config = selectedConfigs[index];
+                final score = scores[config.id];
+                final location = _formatServerLocation(score, config);
+                final cityLabel =
+                    score != null && score.city.isNotEmpty
+                    ? score.city
+                    : location;
+                final ping = score?.ping;
+                return ListTile(
+                  onTap: () => Navigator.of(context).pop(config),
+                  title: Text(
+                    cityLabel,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                  trailing: ping != null
+                      ? Text(
+                          '${ping}ms',
+                          style: const TextStyle(
+                            color: AppTheme.primaryGreen,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        )
+                      : null,
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'Cancel',
+                style: TextStyle(color: AppTheme.primaryGreen),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (pickedConfig == null) return;
+    await provider.connectToServer(pickedConfig, provider.isProxyMode);
   }
 
   // Helper method to run auto-select and then connect
