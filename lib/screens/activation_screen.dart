@@ -1,5 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
@@ -17,6 +19,62 @@ class _ActivationScreenState extends State<ActivationScreen> {
   final TextEditingController _controller = TextEditingController();
   bool _isSubmitting = false;
   String? _errorText;
+
+  Future<void> _pasteFromClipboard() async {
+    final data = await Clipboard.getData('text/plain');
+    final text = data?.text;
+    if (text == null || text.trim().isEmpty) return;
+    _controller.text = text.trim();
+    _controller.selection = TextSelection.fromPosition(
+      TextPosition(offset: _controller.text.length),
+    );
+  }
+
+
+  Future<void> _scanQrCode() async {
+    bool handled = false;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: true,
+      builder: (dialogContext) {
+        return Dialog(
+          backgroundColor: Colors.black,
+          insetPadding: const EdgeInsets.all(16),
+          child: AspectRatio(
+            aspectRatio: 1,
+            child: Stack(
+              children: [
+                MobileScanner(
+                  onDetect: (capture) {
+                    if (handled) return;
+                    final barcode = capture.barcodes.isNotEmpty
+                        ? capture.barcodes.first
+                        : null;
+                    final value = barcode?.rawValue?.trim();
+                    if (value == null || value.isEmpty) return;
+                    handled = true;
+                    _controller.text = value;
+                    _controller.selection = TextSelection.fromPosition(
+                      TextPosition(offset: _controller.text.length),
+                    );
+                    Navigator.of(dialogContext).pop();
+                  },
+                ),
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: IconButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    icon: const Icon(Icons.close, color: Colors.white),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
 
   Future<void> _submitCode() async {
     final code = _controller.text.trim();
@@ -128,6 +186,23 @@ class _ActivationScreenState extends State<ActivationScreen> {
                         hintText: 'کد فعال سازی',
                         hintStyle: TextStyle(
                           color: Colors.white.withValues(alpha: 0.5),
+                        ),
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              onPressed: _pasteFromClipboard,
+                              icon: const Icon(Icons.content_paste),
+                              color: Colors.white70,
+                              tooltip: 'Paste',
+                            ),
+                            IconButton(
+                              onPressed: _scanQrCode,
+                              icon: const Icon(Icons.qr_code_scanner),
+                              color: Colors.white70,
+                              tooltip: 'Scan',
+                            ),
+                          ],
                         ),
                         filled: true,
                         fillColor: AppTheme.surfaceContainer,

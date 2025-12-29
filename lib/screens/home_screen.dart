@@ -13,7 +13,6 @@ import '../widgets/connection_button.dart';
 import '../widgets/server_selector.dart';
 import '../widgets/background_gradient.dart';
 import '../theme/app_theme.dart';
-import '../services/v2ray_service.dart';
 import '../services/wallpaper_service.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -91,8 +90,9 @@ class _HomeScreenState extends State<HomeScreen> {
       _isRefreshingProfile = true;
     });
     try {
-      _nextProfileRefreshAllowedAt =
-          DateTime.now().add(const Duration(minutes: 1));
+      _nextProfileRefreshAllowedAt = DateTime.now().add(
+        const Duration(minutes: 1),
+      );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -522,7 +522,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         const SizedBox(width: 12),
                         GestureDetector(
-                          onTap: _isRefreshingProfile ||
+                          onTap:
+                              _isRefreshingProfile ||
                                   (_nextProfileRefreshAllowedAt != null &&
                                       DateTime.now().isBefore(
                                         _nextProfileRefreshAllowedAt!,

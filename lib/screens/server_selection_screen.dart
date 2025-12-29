@@ -924,7 +924,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
       parts.add(config.remark);
     }
     final label = parts.join(' ');
-    return '${label} • ${score.score}';
+    return '$label • ${score.score}';
   }
 
   @override
@@ -1021,8 +1021,9 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
 
       debugPrint('Local tab showing ${filteredConfigs.length} configs');
     } else if (_selectedFilter == 'Bad') {
-      filteredConfigs =
-          configs.where((config) => _badServerIds.contains(config.id)).toList();
+      filteredConfigs = configs
+          .where((config) => _badServerIds.contains(config.id))
+          .toList();
       debugPrint('Bad tab: showing ${filteredConfigs.length} configs');
     } else {
       final subscription = subscriptions.firstWhere(
@@ -1095,9 +1096,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
         backgroundColor: AppTheme.primaryDark,
         elevation: 0,
         leading: null,
-        actions: [
-          ...appBarActions,
-        ],
+        actions: [...appBarActions],
       ),
       body: Column(
         children: [
