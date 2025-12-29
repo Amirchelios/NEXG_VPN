@@ -340,9 +340,10 @@ class _HomeScreenState extends State<HomeScreen> {
     final expiryDate = (_profileData?['expiry_jalali'] ?? '-') as String;
     final totalDays = _dateDiffInDays(activationDate, expiryDate);
     final remainingDays = _dateDiffFromNow(expiryDate);
-    final progressValue = totalDays <= 0
-        ? 0.0
-        : (totalDays - remainingDays) / totalDays;
+    final normalizedRemaining =
+        remainingDays < 0 ? 0 : (remainingDays > totalDays ? totalDays : remainingDays);
+    final remainingRatio =
+        totalDays <= 0 ? 0.0 : normalizedRemaining / totalDays;
 
     return Consumer<WallpaperService>(
       builder: (context, wallpaperService, _) {
@@ -457,9 +458,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     Text(
                       'زمان باقی مانده: $remainingDays روز',
-                      style: const TextStyle(
-                        color: AppTheme.textGrey,
+                      style: TextStyle(
+                        color: remainingDays <= 3
+                            ? Colors.redAccent
+                            : (remainingDays <= 10
+                                ? Colors.amber
+                                : AppTheme.primaryGreen),
                         fontSize: 11,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ],
@@ -473,16 +479,24 @@ class _HomeScreenState extends State<HomeScreen> {
                         height: 8,
                         color: AppTheme.surfaceContainer,
                       ),
-                      FractionallySizedBox(
-                        widthFactor: progressValue.clamp(0.0, 1.0),
-                        child: Container(
-                          height: 8,
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [
-                                AppTheme.primaryBlue,
-                                AppTheme.primaryGreen,
-                              ],
+                      Positioned.fill(
+                        child: Align(
+                          alignment: Alignment.centerRight,
+                          child: FractionallySizedBox(
+                            widthFactor: remainingRatio.clamp(0.0, 1.0),
+                            alignment: Alignment.centerRight,
+                            child: Container(
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                gradient: LinearGradient(
+                                  begin: Alignment.centerRight,
+                                  end: Alignment.centerLeft,
+                                  colors: [
+                                    AppTheme.primaryBlue,
+                                    AppTheme.primaryGreen,
+                                  ],
+                                ),
+                              ),
                             ),
                           ),
                         ),
