@@ -52,9 +52,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
       return countryCode.toUpperCase();
     }
     final base = countryCode.toUpperCase().codeUnits;
-    return String.fromCharCodes(
-      base.map((codeUnit) => 127397 + codeUnit),
-    );
+    return String.fromCharCodes(base.map((codeUnit) => 127397 + codeUnit));
   }
 
   String _formatServerLocation(ServerScore? score, V2RayConfig config) {
@@ -169,10 +167,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          flag,
-                          style: const TextStyle(fontSize: 28),
-                        ),
+                        Text(flag, style: const TextStyle(fontSize: 28)),
                         const SizedBox(height: 6),
                         Text(
                           label,
@@ -256,8 +251,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                 final config = selectedConfigs[index];
                 final score = scores[config.id];
                 final location = _formatServerLocation(score, config);
-                final cityLabel =
-                    score != null && score.city.isNotEmpty
+                final cityLabel = score != null && score.city.isNotEmpty
                     ? score.city
                     : location;
                 final ping = score?.ping;
@@ -309,13 +303,13 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     final scoredIds = scores.keys.toSet();
     final configs = mode == ServerScoreMode.scored
         ? provider.configs
-            .where((c) => scoredIds.contains(c.id))
-            .where((c) => !badIds.contains(c.id))
-            .toList()
+              .where((c) => scoredIds.contains(c.id))
+              .where((c) => !badIds.contains(c.id))
+              .toList()
         : provider.configs
-            .where((c) => !scoredIds.contains(c.id))
-            .where((c) => !badIds.contains(c.id))
-            .toList();
+              .where((c) => !scoredIds.contains(c.id))
+              .where((c) => !badIds.contains(c.id))
+              .toList();
 
     if (configs.isEmpty) {
       if (!mounted) return;
@@ -323,10 +317,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
           ? 'No scored servers available'
           : context.tr(TranslationKeys.serverSelectorNoServers);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(message), backgroundColor: Colors.red),
       );
       return;
     }
@@ -767,10 +758,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     return data.map((entry) {
       final map = entry as Map<String, dynamic>;
       final remark = map['remarks']?.toString() ?? 'Custom';
-      return {
-        'remark': remark,
-        'config': jsonEncode(map),
-      };
+      return {'remark': remark, 'config': jsonEncode(map)};
     }).toList();
   }
 
@@ -836,46 +824,90 @@ class _ConnectionButtonState extends State<ConnectionButton> {
           mainAxisSize: MainAxisSize.min,
           children: [
             SizedBox(
-              width: 220,
               height: 220,
-              child: PageView(
-                controller: _pageController,
-                physics:
-                    isConnected ||
-                            isConnecting ||
-                            provider.smartFlowState != SmartFlowState.idle
-                    ? const NeverScrollableScrollPhysics()
-                    : const BouncingScrollPhysics(),
-                clipBehavior: Clip.none,
-                onPageChanged: (index) {
-                  setState(() {
-                    _pageIndex = index;
-                  });
-                  provider.setConnectMode(
-                    index == 1 ? ConnectMode.smart : ConnectMode.normal,
-                  );
-                },
+              child: Stack(
+                alignment: Alignment.center,
                 children: [
-                  _buildConnectButton(
-                    context,
-                    provider,
-                    isCustom: false,
-                    isConnected: isConnected,
-                    isConnecting: isConnecting,
-                    selectedConfig: selectedConfig,
-                    hasConfigs: hasConfigs,
-                    smartFlowState: provider.smartFlowState,
+                  Center(
+                    child: SizedBox(
+                      width: 220,
+                      height: 220,
+                      child: PageView(
+                        controller: _pageController,
+                        physics:
+                            isConnected ||
+                                isConnecting ||
+                                provider.smartFlowState != SmartFlowState.idle
+                            ? const NeverScrollableScrollPhysics()
+                            : const BouncingScrollPhysics(),
+                        clipBehavior: Clip.none,
+                        onPageChanged: (index) {
+                          setState(() {
+                            _pageIndex = index;
+                          });
+                          provider.setConnectMode(
+                            index == 1 ? ConnectMode.smart : ConnectMode.normal,
+                          );
+                        },
+                        children: [
+                          _buildConnectButton(
+                            context,
+                            provider,
+                            isCustom: false,
+                            isConnected: isConnected,
+                            isConnecting: isConnecting,
+                            selectedConfig: selectedConfig,
+                            hasConfigs: hasConfigs,
+                            smartFlowState: provider.smartFlowState,
+                          ),
+                          _buildConnectButton(
+                            context,
+                            provider,
+                            isCustom: true,
+                            isConnected: isConnected,
+                            isConnecting: isConnecting,
+                            selectedConfig: selectedConfig,
+                            hasConfigs: hasConfigs,
+                            smartFlowState: provider.smartFlowState,
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  _buildConnectButton(
-                    context,
-                    provider,
-                    isCustom: true,
-                    isConnected: isConnected,
-                    isConnecting: isConnecting,
-                    selectedConfig: selectedConfig,
-                    hasConfigs: hasConfigs,
-                    smartFlowState: provider.smartFlowState,
-                  ),
+                  if (!isConnected &&
+                      !isConnecting &&
+                      provider.smartFlowState == SmartFlowState.idle &&
+                      _pageIndex == 0)
+                    Positioned(
+                      left: 0,
+                      child: _buildPageArrow(
+                        icon: Icons.arrow_back_ios_new,
+                        onTap: () {
+                          _pageController.animateToPage(
+                            1,
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeOut,
+                          );
+                        },
+                      ),
+                    ),
+                  if (!isConnected &&
+                      !isConnecting &&
+                      provider.smartFlowState == SmartFlowState.idle &&
+                      _pageIndex == 1)
+                    Positioned(
+                      right: 0,
+                      child: _buildPageArrow(
+                        icon: Icons.arrow_forward_ios,
+                        onTap: () {
+                          _pageController.animateToPage(
+                            0,
+                            duration: const Duration(milliseconds: 250),
+                            curve: Curves.easeOut,
+                          );
+                        },
+                      ),
+                    ),
                 ],
               ),
             ),
@@ -897,10 +929,8 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     required bool hasConfigs,
     required SmartFlowState smartFlowState,
   }) {
-    final isReplacing =
-        smartFlowState == SmartFlowState.searching && !isCustom;
-    final isTesting =
-        smartFlowState == SmartFlowState.testing && !isCustom;
+    final isReplacing = smartFlowState == SmartFlowState.searching && !isCustom;
+    final isTesting = smartFlowState == SmartFlowState.testing && !isCustom;
     final effectiveConnecting = isConnecting || isReplacing || isTesting;
     final isBusy = isConnecting || smartFlowState != SmartFlowState.idle;
     return GestureDetector(
@@ -956,8 +986,9 @@ class _ConnectionButtonState extends State<ConnectionButton> {
             final scoredIds = scores.keys.toSet();
             final isBad = badIds.contains(selectedConfig.id);
             final isScored = scoredIds.contains(selectedConfig.id);
-            final useSelected =
-                mode == ServerScoreMode.scored ? isScored : !isScored;
+            final useSelected = mode == ServerScoreMode.scored
+                ? isScored
+                : !isScored;
 
             if (isBad || !useSelected) {
               await _runAutoSelectAndConnect(context, provider);
@@ -1033,8 +1064,8 @@ class _ConnectionButtonState extends State<ConnectionButton> {
             alignment: Alignment.center,
             children: [
               // Pulsing background ring (only visible when connecting)
-            if (effectiveConnecting)
-              Container(
+              if (effectiveConnecting)
+                Container(
                       width: 210,
                       height: 210,
                       decoration: BoxDecoration(
@@ -1052,14 +1083,13 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                       ),
                     )
                     .animate(
-                      onPlay: (controller) =>
-                          controller.repeat(reverse: true),
+                      onPlay: (controller) => controller.repeat(reverse: true),
                     )
                     .scaleXY(end: 1.2, duration: 1000.ms),
 
               // Outer animated ring (only visible when connecting)
-            if (effectiveConnecting)
-              Container(
+              if (effectiveConnecting)
+                Container(
                       width: 200,
                       height: 200,
                       decoration: BoxDecoration(
@@ -1080,8 +1110,8 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                     .rotate(duration: 2000.ms, begin: 0, end: 1),
 
               // Middle ring
-            if (effectiveConnecting)
-              Container(
+              if (effectiveConnecting)
+                Container(
                       width: 170,
                       height: 170,
                       decoration: BoxDecoration(
@@ -1099,8 +1129,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                       ),
                     )
                     .animate(
-                      onPlay: (controller) =>
-                          controller.repeat(reverse: true),
+                      onPlay: (controller) => controller.repeat(reverse: true),
                     )
                     .scaleXY(end: 1.1, duration: 1500.ms),
 
@@ -1113,13 +1142,13 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                  colors: _getGradientColors(
-                    isConnected,
-                    effectiveConnecting,
-                    isCustom,
-                    isReplacing,
-                    isTesting,
-                  ),
+                    colors: _getGradientColors(
+                      isConnected,
+                      effectiveConnecting,
+                      isCustom,
+                      isReplacing,
+                      isTesting,
+                    ),
                   ),
                   boxShadow: [
                     BoxShadow(
@@ -1229,6 +1258,36 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     );
   }
 
+  Widget _buildPageArrow({
+    required IconData icon,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Container(
+          width: 36,
+          height: 36,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: AppTheme.cardDark.withValues(alpha: 0.9),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.25),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Icon(icon, size: 16, color: Colors.white),
+        ),
+      ),
+    );
+  }
+
   Color _getButtonColor(
     bool isConnected,
     bool isConnecting,
@@ -1266,10 +1325,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
         ];
       }
       if (isReplacing && !isCustom) {
-        return [
-          Colors.amber,
-          Colors.amber.withValues(alpha: 0.7),
-        ];
+        return [Colors.amber, Colors.amber.withValues(alpha: 0.7)];
       }
       return isCustom
           ? [
@@ -1327,6 +1383,4 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     if (hasConfigs) return 'XConnect';
     return 'No Servers';
   }
-
 }
-
