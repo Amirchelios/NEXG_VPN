@@ -20,6 +20,7 @@ class ConnectionButton extends StatefulWidget {
 class _ConnectionButtonState extends State<ConnectionButton> {
   // Cancellation token for auto-select operation
   AutoSelectCancellationToken? _autoSelectCancellationToken;
+  bool _smartFlowDialogVisible = false;
 
   // Stream controller for status updates
   late final StreamController<String> _autoSelectStatusStream =
@@ -208,6 +209,59 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     });
 
     await provider.connectToServer(selectedConfigs.first, provider.isProxyMode);
+  }
+
+  Future<void> _showSmartFlowStatusDialog(
+    BuildContext context,
+    V2RayProvider provider,
+  ) async {
+    if (_smartFlowDialogVisible) return;
+    _smartFlowDialogVisible = true;
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        backgroundColor: AppTheme.secondaryDark,
+        title: Text(context.tr(TranslationKeys.serverSelectionAutoSelect)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(AppTheme.primaryGreen),
+            ),
+            const SizedBox(height: 16),
+            Text(context.tr(TranslationKeys.serverSelectionTestingServers)),
+            const SizedBox(height: 8),
+            StreamBuilder<String>(
+              stream: _autoSelectStatusStream.stream,
+              builder: (context, snapshot) {
+                return Text(
+                  snapshot.data ?? '',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                );
+              },
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              await provider.cancelSmartFlowAndDisconnect();
+              if (mounted && Navigator.of(context).canPop()) {
+                Navigator.of(context).pop();
+              }
+            },
+            child: Text(
+              context.tr('common.cancel'),
+              style: const TextStyle(color: AppTheme.primaryGreen),
+            ),
+          ),
+        ],
+      ),
+    ).whenComplete(() {
+      _smartFlowDialogVisible = false;
+    });
   }
 
   // Helper method to run auto-select and then connect
@@ -759,6 +813,16 @@ class _ConnectionButtonState extends State<ConnectionButton> {
   Widget build(BuildContext context) {
     return Consumer<V2RayProvider>(
       builder: (context, provider, _) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          final shouldShow =
+              provider.smartFlowState != SmartFlowState.idle &&
+              provider.connectMode == ConnectMode.normal;
+          if (shouldShow) {
+            _showSmartFlowStatusDialog(context, provider);
+          } else if (_smartFlowDialogVisible && Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
+        });
         // Show loading state while initializing
         if (provider.isInitializing) {
           return Container(
