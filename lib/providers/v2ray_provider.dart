@@ -978,7 +978,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             // Don't fail the connection for this
           }
 
-          if (_connectMode == ConnectMode.normal && !_isAutoRecovering) {
+          if (_connectMode == ConnectMode.normal &&
+              (!_isAutoRecovering ||
+                  _smartFlowState != SmartFlowState.searching)) {
             setSmartFlowState(SmartFlowState.testing);
           }
 
@@ -1039,6 +1041,9 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             return;
           }
           await selectConfig(candidate);
+          if (_connectMode == ConnectMode.normal) {
+            setSmartFlowState(SmartFlowState.testing);
+          }
           await connectToServer(candidate, _isProxyMode);
           if (_smartFlowCancelled) {
             return;
@@ -1474,8 +1479,11 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       }
 
       if (result.selectedConfig != null) {
-        await selectConfig(result.selectedConfig!);
-        await connectToServer(result.selectedConfig!, _isProxyMode);
+          await selectConfig(result.selectedConfig!);
+          if (_connectMode == ConnectMode.normal) {
+            setSmartFlowState(SmartFlowState.testing);
+          }
+          await connectToServer(result.selectedConfig!, _isProxyMode);
       } else if (_connectMode == ConnectMode.normal) {
         setSmartFlowState(SmartFlowState.idle);
       }

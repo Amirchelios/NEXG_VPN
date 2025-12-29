@@ -813,6 +813,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     final isReplacing =
         smartFlowState == SmartFlowState.searching && !isCustom;
     final effectiveConnecting = isConnecting || isReplacing;
+    final isBusy = isConnecting || smartFlowState != SmartFlowState.idle;
     return GestureDetector(
       onTap: () async {
         if (provider.isInitializing) {
@@ -820,7 +821,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
         }
 
         try {
-          if (isConnecting || isReplacing) {
+          if (isBusy) {
             _autoSelectCancellationToken?.cancel();
             _autoSelectCancellationToken = null;
             if (mounted && Navigator.of(context).canPop()) {
