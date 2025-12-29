@@ -29,6 +29,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   AutoSelectCancellationToken? _autoRecoverCancellationToken;
   bool _smartFlowCancelled = false;
   bool _cancelConnectRequested = false;
+  bool _adBlockEnabled = false;
 
   // Method channel for VPN control
   static const platform = MethodChannel('com.cloud.pira/vpn_control');
@@ -48,6 +49,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       _isUpdatingSubscriptions; // Getter for update state
   ConnectMode get connectMode => _connectMode;
   SmartFlowState get smartFlowState => _smartFlowState;
+  bool get adBlockEnabled => _adBlockEnabled;
 
   // Expose V2Ray status for real-time traffic monitoring
   V2RayStatus? get currentStatus => _v2rayService.currentStatus;
@@ -119,6 +121,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       // Load proxy mode setting from SharedPreferences
       final prefs = await SharedPreferences.getInstance();
       _isProxyMode = prefs.getBool('proxy_mode_enabled') ?? false;
+      _adBlockEnabled = prefs.getBool('adblock_enabled') ?? false;
       _connectMode = ConnectMode.values.firstWhere(
         (mode) => mode.name == (prefs.getString('connect_mode') ?? 'normal'),
         orElse: () => ConnectMode.normal,
@@ -974,6 +977,13 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         _setError(
           'Failed to connect to ${config.remark} after $attemptCount attempts: $lastError',
         );
+        if (_connectMode == ConnectMode.normal &&
+            !_smartFlowCancelled &&
+            !_isAutoRecovering) {
+          await ServerScoreStore.addBadServer(config.id);
+          await ServerScoreStore.removeScore(config.id);
+          await _recoverAfterFailedConnect(config);
+        }
       }
     } catch (e) {
       debugPrint('Unexpected error in connection process: $e');
@@ -981,6 +991,59 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     } finally {
       _isConnecting = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> _recoverAfterFailedConnect(V2RayConfig failedConfig) async {
+    if (_isAutoRecovering) {
+      return;
+    }
+    _isAutoRecovering = true;
+    try {
+      _smartFlowState = SmartFlowState.searching;
+      notifyListeners();
+
+      while (!_smartFlowCancelled) {
+        _autoRecoverCancellationToken?.cancel();
+        _autoRecoverCancellationToken = AutoSelectCancellationToken();
+
+        final candidates = await _collectCandidateServers(
+          4,
+          excludeId: failedConfig.id,
+        );
+        if (candidates.isEmpty) {
+          _smartFlowState = SmartFlowState.idle;
+          notifyListeners();
+          return;
+        }
+
+        for (final candidate in candidates) {
+          if (_smartFlowCancelled) {
+            return;
+          }
+          await selectConfig(candidate);
+          await connectToServer(candidate, _isProxyMode);
+          if (_smartFlowCancelled) {
+            return;
+          }
+
+          final active = _v2rayService.activeConfig;
+          if (active == null || active.id != candidate.id) {
+            continue;
+          }
+
+          final healthy = await _evaluateServerHealth(candidate);
+          if (healthy) {
+            _smartFlowState = SmartFlowState.idle;
+            notifyListeners();
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Recover after failed connect error: $e');
+    } finally {
+      _isAutoRecovering = false;
     }
   }
 
@@ -1022,6 +1085,27 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('connect_mode', mode.name);
     notifyListeners();
+  }
+
+  Future<void> setAdBlockEnabled(bool enabled) async {
+    if (_adBlockEnabled == enabled) {
+      return;
+    }
+    _adBlockEnabled = enabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('adblock_enabled', enabled);
+    notifyListeners();
+
+    final active = _v2rayService.activeConfig;
+    if (active == null) {
+      return;
+    }
+
+    if (active.configType == 'custom' || active.id.startsWith('custom:')) {
+      await connectRawConfig(active.remark, active.fullConfig, _isProxyMode);
+    } else {
+      await connectToServer(active, _isProxyMode);
+    }
   }
 
   Future<void> connectToCustomConfigs(
@@ -1083,6 +1167,14 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       _isConnecting = false;
       notifyListeners();
     }
+  }
+
+  Future<bool> connectRawConfig(
+    String remark,
+    String rawConfig,
+    bool statusProxy,
+  ) async {
+    return _v2rayService.connectRawConfig(remark, rawConfig, statusProxy);
   }
 
   Future<void> _scoreConnectedServer(V2RayConfig config) async {
@@ -1164,6 +1256,134 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     } catch (e) {
       debugPrint('Error scoring server ${config.remark}: $e');
     }
+  }
+
+  Future<bool> _evaluateServerHealth(V2RayConfig config) async {
+    if (_smartFlowCancelled) {
+      return false;
+    }
+    final existing = await ServerScoreStore.getScore(config.id);
+    if (existing != null) {
+      return true;
+    }
+
+    if (_connectMode == ConnectMode.normal) {
+      _smartFlowState = SmartFlowState.testing;
+      notifyListeners();
+    }
+
+    int pingValue = -1;
+    try {
+      final ping = await _v2rayService
+          .getServerDelay(config, cancellationToken: _autoRecoverCancellationToken)
+          .timeout(const Duration(seconds: 6), onTimeout: () => -1);
+      pingValue = ping ?? -1;
+    } catch (_) {
+      pingValue = -1;
+    }
+
+    if (_smartFlowCancelled) {
+      return false;
+    }
+
+    if (pingValue <= 0) {
+      await ServerScoreStore.addBadServer(config.id);
+      await ServerScoreStore.removeScore(config.id);
+      return false;
+    }
+
+    final results = await _v2rayService.probeWebsites({
+      'youtube': Uri.parse('https://www.youtube.com'),
+      'instagram': Uri.parse('https://www.instagram.com'),
+    });
+
+    final youtubeOk = results['youtube'] == true;
+    final instagramOk = results['instagram'] == true;
+    final isHealthy = pingValue > 0 && youtubeOk && instagramOk;
+
+    if (!isHealthy) {
+      await ServerScoreStore.addBadServer(config.id);
+      await ServerScoreStore.removeScore(config.id);
+      return false;
+    }
+
+    final score = ServerScoreStore.calculateScore(
+      ping: pingValue,
+      youtubeOk: youtubeOk,
+      instagramOk: instagramOk,
+    );
+
+    final ipInfo = await _v2rayService.fetchIpInfo();
+    final country = ipInfo.success ? ipInfo.country : '';
+    final city = ipInfo.success ? ipInfo.city : '';
+    final countryCode = ipInfo.success ? ipInfo.countryCode : '';
+
+    await ServerScoreStore.removeBadServer(config.id);
+    await ServerScoreStore.saveScore(
+      ServerScore(
+        configId: config.id,
+        ping: pingValue,
+        youtubeOk: youtubeOk,
+        instagramOk: instagramOk,
+        score: score,
+        timestampMs: DateTime.now().millisecondsSinceEpoch,
+        country: country,
+        city: city,
+        countryCode: countryCode,
+      ),
+    );
+    return true;
+  }
+
+  Future<List<V2RayConfig>> _collectCandidateServers(
+    int targetCount, {
+    required String excludeId,
+  }) async {
+    final mode = await ServerScoreStore.loadMode();
+    final scores = await ServerScoreStore.loadScores();
+    final badIds = await ServerScoreStore.loadBadServerIds();
+    final scoredIds = scores.keys.toSet();
+
+    final candidates = (mode == ServerScoreMode.scored
+            ? _configs.where((c) => scoredIds.contains(c.id))
+            : _configs.where((c) => !scoredIds.contains(c.id)))
+        .where((c) => c.id != excludeId)
+        .where((c) => !badIds.contains(c.id))
+        .toList();
+
+    if (candidates.isEmpty) {
+      return [];
+    }
+
+    const batchSize = 10;
+    final results = <MapEntry<V2RayConfig, int>>[];
+    for (var i = 0; i < candidates.length; i += batchSize) {
+      if (_smartFlowCancelled) {
+        return [];
+      }
+      final batch = candidates.skip(i).take(batchSize).toList();
+      final futures = batch.map((config) async {
+        final delay = await _v2rayService
+            .getServerDelay(config, cancellationToken: _autoRecoverCancellationToken)
+            .timeout(const Duration(seconds: 6), onTimeout: () => -1);
+        return MapEntry(config, delay ?? -1);
+      }).toList();
+
+      final batchResults = await Future.wait(futures);
+      for (final entry in batchResults) {
+        if (entry.value > 0) {
+          results.add(MapEntry(entry.key, entry.value));
+        } else {
+          await ServerScoreStore.addBadServer(entry.key.id);
+        }
+      }
+      if (results.length >= targetCount) {
+        break;
+      }
+    }
+
+    results.sort((a, b) => a.value.compareTo(b.value));
+    return results.take(targetCount).map((e) => e.key).toList();
   }
 
   Future<void> _autoRecoverFromBadServer(V2RayConfig config) async {

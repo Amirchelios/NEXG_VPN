@@ -53,6 +53,11 @@ class IpInfo {
 }
 
 class V2RayService extends ChangeNotifier {
+  static const List<String> _adBlockDnsServers = [
+    'https://dns.adguard-dns.com/dns-query',
+    'https://security.cloudflare-dns.com/dns-query',
+  ];
+
   Future<void> Function()? _onDisconnected;
   bool _isInitialized = false;
   V2RayConfig? _activeConfig;
@@ -259,6 +264,7 @@ class V2RayService extends ChangeNotifier {
       final bool dnsEnabled = prefs.getBool('custom_dns_enabled') ?? false;
       final String dnsServers =
           prefs.getString('custom_dns_servers') ?? '8.8.8.8\n8.8.4.4';
+      final bool adBlockEnabled = prefs.getBool('adblock_enabled') ?? false;
 
       // Apply custom DNS settings if enabled
       if (dnsEnabled && dnsServers.isNotEmpty) {
@@ -270,9 +276,18 @@ class V2RayService extends ChangeNotifier {
             .toList();
 
         if (serversList.isNotEmpty) {
+          if (adBlockEnabled) {
+            for (final server in _adBlockDnsServers.reversed) {
+              if (!serversList.contains(server)) {
+                serversList.insert(0, server);
+              }
+            }
+          }
           // Set the DNS servers in the parser
           parser.dns = {"servers": serversList};
         }
+      } else if (adBlockEnabled) {
+        parser.dns = {"servers": _adBlockDnsServers};
       }
 
       // Get blocked apps from shared preferences
@@ -282,9 +297,10 @@ class V2RayService extends ChangeNotifier {
       await Future.delayed(const Duration(milliseconds: 300));
 
       // Start V2Ray in VPN mode
+      final configJson = parser.getFullConfiguration();
       await _flutterV2ray.startV2Ray(
         remark: parser.remark,
-        config: parser.getFullConfiguration(),
+        config: configJson,
         blockedApps: blockedAppsList, // Use saved blocked apps list
         bypassSubnets: bypassSubnets,
         proxyOnly: statusProxy, // Use proxy mode based on statusProxy parameter
@@ -380,11 +396,14 @@ class V2RayService extends ChangeNotifier {
 
       // Get blocked apps from shared preferences
       final blockedAppsList = prefs.getStringList('blocked_apps');
+      final bool adBlockEnabled = prefs.getBool('adblock_enabled') ?? false;
+
+      final String configJson = rawConfig;
 
       // Start V2Ray with raw JSON config
       await _flutterV2ray.startV2Ray(
         remark: remark,
-        config: rawConfig,
+        config: configJson,
         blockedApps: blockedAppsList,
         bypassSubnets: bypassSubnets,
         proxyOnly: statusProxy,
@@ -490,6 +509,50 @@ class V2RayService extends ChangeNotifier {
   Future<void> _clearActiveConfig() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove('active_config');
+  }
+
+  String _applyAdBlockRouting(String configJson) {
+    try {
+      final Map<String, dynamic> config =
+          jsonDecode(configJson) as Map<String, dynamic>;
+      final outbounds = (config['outbounds'] as List<dynamic>? ?? [])
+          .map((entry) => Map<String, dynamic>.from(entry as Map))
+          .toList();
+      final hasBlock = outbounds.any(
+        (entry) => entry['tag']?.toString() == 'block',
+      );
+      if (!hasBlock) {
+        outbounds.add({
+          'protocol': 'blackhole',
+          'tag': 'block',
+        });
+        config['outbounds'] = outbounds;
+      }
+
+      final routing =
+          Map<String, dynamic>.from(config['routing'] as Map? ?? {});
+      final rules = (routing['rules'] as List<dynamic>? ?? [])
+          .map((entry) => Map<String, dynamic>.from(entry as Map))
+          .toList();
+
+      rules.insert(0, {
+        'type': 'field',
+        'domain': [
+          'geosite:category-ads-all',
+          'geosite:category-malware',
+          'geosite:category-phishing',
+        ],
+        'outboundTag': 'block',
+      });
+
+      routing['rules'] = rules;
+      config['routing'] = routing;
+
+      return jsonEncode(config);
+    } catch (e) {
+      debugPrint('AdBlock config apply failed: $e');
+      return configJson;
+    }
   }
 
   Future<V2RayConfig?> _loadActiveConfig() async {

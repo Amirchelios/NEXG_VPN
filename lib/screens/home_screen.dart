@@ -138,7 +138,24 @@ class _HomeScreenState extends State<HomeScreen> {
                 elevation: 0,
                 centerTitle: false,
                 leading: null,
-                actions: const [],
+                actions: [
+                  Consumer<V2RayProvider>(
+                    builder: (context, provider, _) {
+                      final enabled = provider.adBlockEnabled;
+                      return IconButton(
+                        icon: Icon(
+                          enabled ? Icons.security : Icons.security_outlined,
+                          color:
+                              enabled ? AppTheme.primaryGreen : Colors.white,
+                        ),
+                        onPressed: () async {
+                          await provider.setAdBlockEnabled(!enabled);
+                        },
+                        tooltip: enabled ? 'AdBlock: On' : 'AdBlock: Off',
+                      );
+                    },
+                  ),
+                ],
               ),
               body: Column(
                 children: [
