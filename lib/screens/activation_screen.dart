@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_theme.dart';
+import '../widgets/background_gradient.dart';
 import 'main_navigation_screen.dart';
 
 class ActivationScreen extends StatefulWidget {
@@ -85,87 +86,89 @@ class _ActivationScreenState extends State<ActivationScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      body: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
-        child: Center(
-          child: Card(
-            color: AppTheme.cardDark,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const Text(
-                    'فعال سازی حساب',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: _controller,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(color: Colors.white),
-                    decoration: InputDecoration(
-                      hintText: 'کد فعال سازی',
-                      hintStyle: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5),
+    return BackgroundGradient(
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        body: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 24),
+          child: Center(
+            child: Card(
+              color: AppTheme.cardDark,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const Text(
+                      'فعال سازی حساب',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
                       ),
-                      filled: true,
-                      fillColor: AppTheme.surfaceContainer,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                        borderSide: BorderSide.none,
-                      ),
-                    ),
-                  ),
-                  if (_errorText != null) ...[
-                    const SizedBox(height: 12),
-                    Text(
-                      _errorText!,
-                      style: const TextStyle(color: Colors.redAccent),
                       textAlign: TextAlign.center,
                     ),
-                  ],
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _isSubmitting ? null : _submitCode,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.primaryGreen,
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: _controller,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(color: Colors.white),
+                      decoration: InputDecoration(
+                        hintText: 'کد فعال سازی',
+                        hintStyle: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.5),
+                        ),
+                        filled: true,
+                        fillColor: AppTheme.surfaceContainer,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
                       ),
                     ),
-                    child: _isSubmitting
-                        ? const SizedBox(
-                            width: 18,
-                            height: 18,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(Colors.white),
+                    if (_errorText != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _errorText!,
+                        style: const TextStyle(color: Colors.redAccent),
+                        textAlign: TextAlign.center,
+                      ),
+                    ],
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: _isSubmitting ? null : _submitCode,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primaryGreen,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: _isSubmitting
+                          ? const SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation<Color>(Colors.white),
+                              ),
+                            )
+                          : const Text(
+                              'تایید',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                          )
-                        : const Text(
-                            'تایید',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                  ),
-                ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),

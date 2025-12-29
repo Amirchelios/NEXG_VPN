@@ -522,6 +522,69 @@ class _HomeScreenState extends State<HomeScreen> {
     final month = int.tryParse(parts[1]);
     final day = int.tryParse(parts[2]);
     if (year == null || month == null || day == null) return null;
-    return DateTime(year, month, day);
+    return _jalaliToGregorian(year, month, day);
+  }
+
+  DateTime _jalaliToGregorian(int jy, int jm, int jd) {
+    var jyAdj = jy - 979;
+    var jmAdj = jm - 1;
+    var jdAdj = jd - 1;
+
+    var jDayNo = 365 * jyAdj + (jyAdj ~/ 33) * 8 + ((jyAdj % 33) + 3) ~/ 4;
+    for (var i = 0; i < jmAdj; ++i) {
+      jDayNo += i < 6 ? 31 : 30;
+    }
+    jDayNo += jdAdj;
+
+    var gDayNo = jDayNo + 79;
+
+    var gy = 1600 + 400 * (gDayNo ~/ 146097);
+    gDayNo %= 146097;
+
+    var leap = true;
+    if (gDayNo >= 36525) {
+      gDayNo--;
+      gy += 100 * (gDayNo ~/ 36524);
+      gDayNo %= 36524;
+
+      if (gDayNo >= 365) {
+        gDayNo++;
+      } else {
+        leap = false;
+      }
+    }
+
+    gy += 4 * (gDayNo ~/ 1461);
+    gDayNo %= 1461;
+
+    if (gDayNo >= 366) {
+      leap = false;
+      gDayNo--;
+      gy += gDayNo ~/ 365;
+      gDayNo %= 365;
+    }
+
+    final gMonthDays = <int>[
+      31,
+      leap ? 29 : 28,
+      31,
+      30,
+      31,
+      30,
+      31,
+      31,
+      30,
+      31,
+      30,
+      31,
+    ];
+
+    var gm = 0;
+    while (gm < 12 && gDayNo >= gMonthDays[gm]) {
+      gDayNo -= gMonthDays[gm];
+      gm++;
+    }
+    final gd = gDayNo + 1;
+    return DateTime(gy, gm + 1, gd);
   }
 }
