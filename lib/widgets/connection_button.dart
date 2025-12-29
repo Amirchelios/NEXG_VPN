@@ -812,7 +812,9 @@ class _ConnectionButtonState extends State<ConnectionButton> {
   }) {
     final isReplacing =
         smartFlowState == SmartFlowState.searching && !isCustom;
-    final effectiveConnecting = isConnecting || isReplacing;
+    final isTesting =
+        smartFlowState == SmartFlowState.testing && !isCustom;
+    final effectiveConnecting = isConnecting || isReplacing || isTesting;
     final isBusy = isConnecting || smartFlowState != SmartFlowState.idle;
     return GestureDetector(
       onTap: () async {
@@ -932,6 +934,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                   isConnecting,
                   isCustom,
                   isReplacing,
+                  isTesting,
                 ).withValues(alpha: 0.4),
                 blurRadius: 25,
                 spreadRadius: 2,
@@ -955,6 +958,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                             effectiveConnecting,
                             isCustom,
                             isReplacing,
+                            isTesting,
                           ).withValues(alpha: 0.3),
                           width: 4,
                         ),
@@ -979,6 +983,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                             effectiveConnecting,
                             isCustom,
                             isReplacing,
+                            isTesting,
                           ),
                           width: 3,
                         ),
@@ -1000,6 +1005,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                             effectiveConnecting,
                             isCustom,
                             isReplacing,
+                            isTesting,
                           ).withValues(alpha: 0.7),
                           width: 2,
                         ),
@@ -1025,6 +1031,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                     effectiveConnecting,
                     isCustom,
                     isReplacing,
+                    isTesting,
                   ),
                   ),
                   boxShadow: [
@@ -1034,6 +1041,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                         effectiveConnecting,
                         isCustom,
                         isReplacing,
+                        isTesting,
                       ).withValues(alpha: 0.5),
                       blurRadius: 15,
                       offset: const Offset(0, 5),
@@ -1139,8 +1147,12 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     bool isConnecting,
     bool isCustom,
     bool isReplacing,
+    bool isTesting,
   ) {
     if (isConnecting) {
+      if (isTesting && !isCustom) {
+        return AppTheme.connectedGreen;
+      }
       if (isReplacing && !isCustom) {
         return Colors.amber;
       }
@@ -1157,8 +1169,15 @@ class _ConnectionButtonState extends State<ConnectionButton> {
     bool isConnecting,
     bool isCustom,
     bool isReplacing,
+    bool isTesting,
   ) {
     if (isConnecting) {
+      if (isTesting && !isCustom) {
+        return [
+          AppTheme.connectedGreen,
+          AppTheme.connectedGreen.withValues(alpha: 0.7),
+        ];
+      }
       if (isReplacing && !isCustom) {
         return [
           Colors.amber,
