@@ -39,7 +39,7 @@ class SplitModeButton extends StatelessWidget {
         children: [
           _SplitSide(
             active: leftActive,
-            label: 'New',
+            label: 'کاوش کردن',
             icon: Icons.flash_on,
             locked: !discoverEnabled,
             onTap: discoverEnabled
@@ -56,7 +56,7 @@ class SplitModeButton extends StatelessWidget {
           _SplitDivider(),
           _SplitSide(
             active: rightActive,
-            label: 'Scored',
+            label: 'بررسی شده',
             icon: Icons.verified,
             locked: !scoredEnabled,
             onTap: scoredEnabled
