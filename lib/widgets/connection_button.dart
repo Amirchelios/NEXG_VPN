@@ -968,6 +968,14 @@ class _ConnectionButtonState extends State<ConnectionButton>
     final isTesting = smartFlowState == SmartFlowState.testing && !isCustom;
     final effectiveConnecting = isConnecting || isReplacing || isTesting;
     final isBusy = isConnecting || smartFlowState != SmartFlowState.idle;
+    final buttonIcon = _getButtonIcon(isConnected, effectiveConnecting);
+    final buttonText = _getButtonText(
+      isConnected,
+      effectiveConnecting,
+      hasConfigs,
+      isCustom,
+      smartFlowState,
+    );
     return GestureDetector(
       onTap: () async {
         if (!widget.isEnabled) {
@@ -1099,9 +1107,11 @@ class _ConnectionButtonState extends State<ConnectionButton>
             children: [
               Opacity(
                 opacity: widget.isEnabled ? 1.0 : 0.5,
-                child: Container(
+                child: AnimatedContainer(
                   width: 210,
                   height: 210,
+                  duration: const Duration(milliseconds: 650),
+                  curve: Curves.easeInOutCubic,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
                     boxShadow: [
@@ -1193,9 +1203,11 @@ class _ConnectionButtonState extends State<ConnectionButton>
                             .scaleXY(end: 1.1, duration: 1500.ms),
 
                       // Main button with enhanced design
-                      Container(
+                      AnimatedContainer(
                         width: 160,
                         height: 160,
+                        duration: const Duration(milliseconds: 650),
+                        curve: Curves.easeInOutCubic,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: LinearGradient(
@@ -1242,32 +1254,47 @@ class _ConnectionButtonState extends State<ConnectionButton>
                             ),
 
                             // Icon with label
-                            Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  _getButtonIcon(isConnected, effectiveConnecting),
-                                  color: Colors.white,
-                                  size: 54,
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  _getButtonText(
-                                    isConnected,
-                                    effectiveConnecting,
-                                    hasConfigs,
-                                    isCustom,
-                                    smartFlowState,
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 550),
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeInCubic,
+                              transitionBuilder: (child, animation) {
+                                final scale = Tween<double>(
+                                  begin: 0.92,
+                                  end: 1.0,
+                                ).animate(animation);
+                                return FadeTransition(
+                                  opacity: animation,
+                                  child: ScaleTransition(
+                                    scale: scale,
+                                    child: child,
                                   ),
-                                  style: TextStyle(
+                                );
+                              },
+                              child: Column(
+                                key: ValueKey<String>(
+                                  '${buttonIcon.codePoint}|$buttonText',
+                                ),
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    buttonIcon,
                                     color: Colors.white,
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.bold,
-                                    letterSpacing: isCustom ? 0.6 : 0.2,
+                                    size: 54,
                                   ),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    buttonText,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                      letterSpacing: isCustom ? 0.6 : 0.2,
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
                             ),
 
                             if (isCustom)

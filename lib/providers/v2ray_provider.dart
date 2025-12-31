@@ -44,6 +44,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   bool _smartFlowCancelled = false;
   bool _cancelConnectRequested = false;
   bool _adBlockEnabled = false;
+  bool _isDisconnecting = false;
 
   // Method channel for VPN control
   static const platform = MethodChannel('com.cloud.pira/vpn_control');
@@ -51,7 +52,8 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   List<V2RayConfig> get configs => _configs;
   List<Subscription> get subscriptions => _subscriptions;
   V2RayConfig? get selectedConfig => _selectedConfig;
-  V2RayConfig? get activeConfig => _v2rayService.activeConfig;
+  V2RayConfig? get activeConfig =>
+      _isDisconnecting ? null : _v2rayService.activeConfig;
   bool get isConnecting => _isConnecting;
   bool get isLoading => _isLoading;
   bool get isLoadingServers => _isLoadingServers;
@@ -1107,6 +1109,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
 
   Future<void> disconnect() async {
     _isConnecting = true;
+    _isDisconnecting = true;
     if (!_isAutoRecovering) {
       setSmartFlowState(SmartFlowState.idle);
     }
@@ -1117,18 +1120,19 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     }
 
     try {
-      await _v2rayService.disconnect();
-      statusPingOnly = false;
-      // Update config status
       for (int i = 0; i < _configs.length; i++) {
         _configs[i].isConnected = false;
       }
-
+      notifyListeners();
+      await _v2rayService.disconnect();
+      statusPingOnly = false;
+      // Update config status
       // Persist the changes
       await _v2rayService.saveConfigs(_configs);
     } catch (e) {
       _setError('Error disconnecting: $e');
     } finally {
+      _isDisconnecting = false;
       _isConnecting = false;
       notifyListeners();
     }
