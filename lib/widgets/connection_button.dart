@@ -1377,7 +1377,7 @@ class _ConnectionButtonState extends State<ConnectionButton> {
       return isCustom ? AppTheme.primaryBlueDark : AppTheme.connectingBlue;
     }
     if (isConnected) {
-      return isCustom ? AppTheme.primaryBlue : AppTheme.connectedGreen;
+      return AppTheme.connectedGreen;
     }
     return isCustom ? AppTheme.primaryBlueDark : AppTheme.disconnectedRed;
   }
@@ -1409,15 +1409,10 @@ class _ConnectionButtonState extends State<ConnectionButton> {
               AppTheme.connectingBlue.withValues(alpha: 0.7),
             ];
     } else if (isConnected) {
-      return isCustom
-          ? [
-              AppTheme.primaryBlue,
-              AppTheme.primaryBlueDark.withValues(alpha: 0.7),
-            ]
-          : [
-              AppTheme.connectedGreen,
-              AppTheme.connectedGreen.withValues(alpha: 0.7),
-            ];
+      return [
+        AppTheme.connectedGreen,
+        AppTheme.connectedGreen.withValues(alpha: 0.7),
+      ];
     } else {
       return isCustom
           ? [

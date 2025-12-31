@@ -321,13 +321,54 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const SizedBox(height: 16),
 
                                 // Server selector (now includes Proxy Mode Switch)
-                                const ServerSelector(),
-
-                                const SizedBox(height: 20),
+                                AnimatedSwitcher(
+                                  duration: const Duration(milliseconds: 550),
+                                  switchInCurve: Curves.easeOutQuart,
+                                  switchOutCurve: Curves.easeInQuart,
+                                  transitionBuilder: (child, animation) {
+                                    final slide = Tween<Offset>(
+                                      begin: const Offset(0, 0.06),
+                                      end: Offset.zero,
+                                    ).animate(animation);
+                                    return FadeTransition(
+                                      opacity: animation,
+                                      child: SlideTransition(
+                                        position: slide,
+                                        child: child,
+                                      ),
+                                    );
+                                  },
+                                  child: provider.connectMode ==
+                                          ConnectMode.normal
+                                      ? const Padding(
+                                          key: ValueKey('server_selector'),
+                                          padding:
+                                              EdgeInsets.only(bottom: 20),
+                                          child: ServerSelector(),
+                                        )
+                                      : const SizedBox(
+                                          key: ValueKey('no_server_selector'),
+                                          height: 20,
+                                        ),
+                                ),
 
                                 // Connection button
-                                ConnectionButton(
-                                  isEnabled: !_isAccessSuspended(),
+                                AnimatedSlide(
+                                  duration: const Duration(milliseconds: 550),
+                                  curve: Curves.easeOutQuart,
+                                  offset: provider.connectMode ==
+                                          ConnectMode.smart
+                                      ? const Offset(0, -0.03)
+                                      : Offset.zero,
+                                  child: AnimatedOpacity(
+                                    duration:
+                                        const Duration(milliseconds: 550),
+                                    curve: Curves.easeOutQuart,
+                                    opacity: 1,
+                                    child: ConnectionButton(
+                                      isEnabled: !_isAccessSuspended(),
+                                    ),
+                                  ),
                                 ),
 
                                 const SizedBox(height: 40),
