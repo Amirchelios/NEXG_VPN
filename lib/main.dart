@@ -9,30 +9,68 @@ import 'services/wallpaper_service.dart';
 import 'screens/main_navigation_screen.dart';
 import 'screens/privacy_welcome_screen.dart';
 import 'screens/activation_screen.dart';
+import 'screens/loading_screen.dart';
 import 'services/update_service.dart';
 import 'theme/app_theme.dart';
 import 'dart:async';
 
-void main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
+  runApp(const AppBootstrapper());
+}
 
-  // Initialize language provider
-  final languageProvider = LanguageProvider();
-  await languageProvider.initialize();
+class AppBootstrapper extends StatefulWidget {
+  const AppBootstrapper({super.key});
 
-  // Check if user has accepted privacy policy
-  final prefs = await SharedPreferences.getInstance();
-  final bool privacyAccepted = prefs.getBool('privacy_accepted') ?? false;
-  final bool isActivated =
-      (prefs.getString('activation_code') ?? '').trim().isNotEmpty;
+  @override
+  State<AppBootstrapper> createState() => _AppBootstrapperState();
+}
 
-  runApp(
-    MyApp(
-      privacyAccepted: privacyAccepted,
-      isActivated: isActivated,
-      languageProvider: languageProvider,
-    ),
-  );
+class _AppBootstrapperState extends State<AppBootstrapper> {
+  LanguageProvider? _languageProvider;
+  bool _privacyAccepted = false;
+  bool _isActivated = false;
+  bool _ready = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    final languageProvider = LanguageProvider();
+    await languageProvider.initialize();
+
+    final prefs = await SharedPreferences.getInstance();
+    final privacyAccepted = prefs.getBool('privacy_accepted') ?? false;
+    final isActivated =
+        (prefs.getString('activation_code') ?? '').trim().isNotEmpty;
+
+    if (!mounted) return;
+    setState(() {
+      _languageProvider = languageProvider;
+      _privacyAccepted = privacyAccepted;
+      _isActivated = isActivated;
+      _ready = true;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_ready || _languageProvider == null) {
+      return const MaterialApp(
+        debugShowCheckedModeBanner: false,
+        home: LoadingScreen(),
+      );
+    }
+
+    return MyApp(
+      privacyAccepted: _privacyAccepted,
+      isActivated: _isActivated,
+      languageProvider: _languageProvider!,
+    );
+  }
 }
 
 class MyApp extends StatefulWidget {
@@ -130,11 +168,18 @@ class _MyAppState extends State<MyApp> {
               Locale('ru'), // Russian
               Locale('fa'), // Persian
             ],
-            home: widget.privacyAccepted
-                ? (widget.isActivated
-                    ? const MainNavigationScreen()
-                    : const ActivationScreen())
-                : const PrivacyWelcomeScreen(),
+            home: Consumer<V2RayProvider>(
+              builder: (context, v2rayProvider, _) {
+                return AppLoadingGate(
+                  isReady: !v2rayProvider.isInitializing,
+                  child: widget.privacyAccepted
+                      ? (widget.isActivated
+                          ? const MainNavigationScreen()
+                          : const ActivationScreen())
+                      : const PrivacyWelcomeScreen(),
+                );
+              },
+            ),
           );
         },
       ),
