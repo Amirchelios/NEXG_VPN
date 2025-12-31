@@ -251,10 +251,14 @@ class _OrbitalLoader extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Icon(
-                Icons.shield_outlined,
-                size: 52,
-                color: Colors.white,
+              child: Center(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                  child: Image.asset(
+                    'assets/images/app_icon.png',
+                    fit: BoxFit.contain,
+                  ),
+                ),
               ),
             ),
           ),
@@ -368,6 +372,48 @@ class _LoadingDots extends StatelessWidget {
           }),
         );
       },
+    );
+  }
+}
+
+class _AppIconHalo extends StatelessWidget {
+  final Animation<double> pulseAnimation;
+
+  const _AppIconHalo({required this.pulseAnimation});
+
+  @override
+  Widget build(BuildContext context) {
+    return ScaleTransition(
+      scale: Tween<double>(begin: 0.96, end: 1.04).animate(
+        CurvedAnimation(parent: pulseAnimation, curve: Curves.easeInOut),
+      ),
+      child: Container(
+        width: 86,
+        height: 86,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle,
+          color: Colors.black.withValues(alpha: 0.2),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primaryBlue.withValues(alpha: 0.45),
+              blurRadius: 18,
+              spreadRadius: 2,
+            ),
+          ],
+        ),
+        child: ClipOval(
+          child: Transform.translate(
+            offset: const Offset(0, 14),
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Image.asset(
+                'assets/images/app_icon.png',
+                fit: BoxFit.contain,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
