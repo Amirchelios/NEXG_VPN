@@ -13,7 +13,7 @@ class AppLoadingGate extends StatefulWidget {
     super.key,
     required this.child,
     required this.isReady,
-    this.minDuration = const Duration(milliseconds: 1400),
+    this.minDuration = const Duration(milliseconds: 700),
   });
 
   @override
@@ -35,11 +35,37 @@ class _AppLoadingGateState extends State<AppLoadingGate> {
   @override
   Widget build(BuildContext context) {
     final showLoading = !_minElapsed || !widget.isReady;
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 500),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      child: showLoading ? const LoadingScreen() : widget.child,
+    return Container(
+      color: AppTheme.surfaceDark,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 900),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        layoutBuilder: (currentChild, previousChildren) {
+          return Stack(
+            children: [
+              ...previousChildren,
+              if (currentChild != null) currentChild,
+            ],
+          );
+        },
+        transitionBuilder: (child, animation) {
+          final fade = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeOutCubic,
+            reverseCurve: Curves.easeInCubic,
+          );
+          final scale = Tween<double>(begin: 0.985, end: 1.0).animate(fade);
+          return FadeTransition(
+            opacity: fade,
+            child: ScaleTransition(
+              scale: scale,
+              child: child,
+            ),
+          );
+        },
+        child: showLoading ? const LoadingScreen() : widget.child,
+      ),
     );
   }
 }
@@ -86,6 +112,7 @@ class _LoadingScreenState extends State<LoadingScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.transparent,
       body: Stack(
         children: [
           const _LoadingBackground(),

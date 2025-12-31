@@ -35,7 +35,9 @@ class _AppBootstrapperState extends State<AppBootstrapper> {
   @override
   void initState() {
     super.initState();
-    _initialize();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _initialize();
+    });
   }
 
   Future<void> _initialize() async {

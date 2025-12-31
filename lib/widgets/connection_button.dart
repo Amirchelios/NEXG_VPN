@@ -20,7 +20,7 @@ class ConnectionButton extends StatefulWidget {
 }
 
 class _ConnectionButtonState extends State<ConnectionButton>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   // Cancellation token for auto-select operation
   AutoSelectCancellationToken? _autoSelectCancellationToken;
 
@@ -32,6 +32,8 @@ class _ConnectionButtonState extends State<ConnectionButton>
   bool _pageInitialized = false;
   late final AnimationController _arrowPulseController;
   late final Animation<double> _arrowPulseAnimation;
+  late final AnimationController _introController;
+  bool _showIntroIcon = true;
 
   @override
   void initState() {
@@ -43,6 +45,15 @@ class _ConnectionButtonState extends State<ConnectionButton>
     _arrowPulseAnimation = Tween<double>(begin: 1.0, end: 1.08).animate(
       CurvedAnimation(parent: _arrowPulseController, curve: Curves.easeInOut),
     );
+    _introController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..forward().whenComplete(() {
+        if (!mounted) return;
+        setState(() {
+          _showIntroIcon = false;
+        });
+      });
   }
 
   @override
@@ -50,6 +61,7 @@ class _ConnectionButtonState extends State<ConnectionButton>
     _pageController.dispose();
     _autoSelectStatusStream.close();
     _arrowPulseController.dispose();
+    _introController.dispose();
     super.dispose();
   }
 
@@ -1284,30 +1296,66 @@ class _ConnectionButtonState extends State<ConnectionButton>
                                   ),
                                 );
                               },
-                              child: Column(
-                                key: ValueKey<String>(
-                                  '${buttonIcon.codePoint}|$buttonText',
-                                ),
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    buttonIcon,
-                                    color: Colors.white,
-                                    size: 54,
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    buttonText,
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.bold,
-                                      letterSpacing: isCustom ? 0.6 : 0.2,
+                              child: _showIntroIcon
+                                  ? Column(
+                                      key: const ValueKey('intro_icon'),
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        ScaleTransition(
+                                          scale: Tween<double>(
+                                            begin: 0.9,
+                                            end: 1.0,
+                                          ).animate(
+                                            CurvedAnimation(
+                                              parent: _introController,
+                                              curve: Curves.easeOutCubic,
+                                            ),
+                                          ),
+                                          child: Image.asset(
+                                            'assets/images/app_icon.png',
+                                            width: 58,
+                                            height: 58,
+                                            fit: BoxFit.contain,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          'NG VPN',
+                                          style: TextStyle(
+                                            color: Colors.white.withValues(
+                                              alpha: 0.85,
+                                            ),
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            letterSpacing: 1.1,
+                                          ),
+                                        ),
+                                      ],
+                                    )
+                                  : Column(
+                                      key: ValueKey<String>(
+                                        '${buttonIcon.codePoint}|$buttonText',
+                                      ),
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          buttonIcon,
+                                          color: Colors.white,
+                                          size: 54,
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Text(
+                                          buttonText,
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 13,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: isCustom ? 0.6 : 0.2,
+                                          ),
+                                          textAlign: TextAlign.center,
+                                        ),
+                                      ],
                                     ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ],
-                              ),
                             ),
 
                             if (isCustom)
