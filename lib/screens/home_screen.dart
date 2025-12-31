@@ -667,7 +667,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                               ),
                               const SizedBox(height: 6),
                               Text(
-                                expiryDate,
+                                _todayLabel(),
                                 style: const TextStyle(
                                   color: AppTheme.textGrey,
                                   fontSize: 12,
@@ -938,12 +938,14 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     if (remainingDays < 0) {
       return 'زمان باقی مانده: منقضی شده';
     }
-    if (remainingDays != 1) {
+    if (remainingDays > 1) {
       return 'زمان باقی مانده: $remainingDays روز';
     }
     final endDate = _parseDate(expiryDate);
     if (endDate == null) {
-      return 'زمان باقی مانده: 1 روز';
+      return remainingDays == 1
+          ? 'زمان باقی مانده: 1 روز'
+          : 'زمان باقی مانده: 0 روز';
     }
     final endOfDay = DateTime(
       endDate.year,
@@ -959,6 +961,52 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final hours = diff.inHours;
     final minutes = diff.inMinutes.remainder(60);
     return 'مدت باقی مانده: $hours ساعت و $minutes دقیقه';
+  }
+
+  String _todayLabel() {
+    final now = DateTime.now();
+    return _gregorianToJalaliString(now.year, now.month, now.day);
+  }
+
+  String _gregorianToJalaliString(int gy, int gm, int gd) {
+    final j = _gregorianToJalali(gy, gm, gd);
+    final year = j[0].toString().padLeft(4, '0');
+    final month = j[1].toString().padLeft(2, '0');
+    final day = j[2].toString().padLeft(2, '0');
+    return '$year/$month/$day';
+  }
+
+  List<int> _gregorianToJalali(int gy, int gm, int gd) {
+    final gDays = <int>[
+      0,
+      31,
+      59,
+      90,
+      120,
+      151,
+      181,
+      212,
+      243,
+      273,
+      304,
+      334,
+    ];
+
+    int gy2 = (gm > 2) ? gy + 1 : gy;
+    int days =
+        355666 + (365 * gy) + ((gy2 + 3) ~/ 4) - ((gy2 + 99) ~/ 100) +
+            ((gy2 + 399) ~/ 400) + gd + gDays[gm - 1];
+    int jy = -1595 + 33 * (days ~/ 12053);
+    days %= 12053;
+    jy += 4 * (days ~/ 1461);
+    days %= 1461;
+    if (days > 365) {
+      jy += (days - 1) ~/ 365;
+      days = (days - 1) % 365;
+    }
+    int jm = (days < 186) ? 1 + (days ~/ 31) : 7 + ((days - 186) ~/ 30);
+    int jd = 1 + ((days < 186) ? (days % 31) : ((days - 186) % 30));
+    return [jy, jm, jd];
   }
 
   DateTime? _parseDate(String value) {

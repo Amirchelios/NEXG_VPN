@@ -55,6 +55,7 @@ class _LoadingScreenState extends State<LoadingScreen>
     with TickerProviderStateMixin {
   late final AnimationController _orbitController;
   late final AnimationController _pulseController;
+  late final Animation<Color?> _taglineColor;
 
   @override
   void initState() {
@@ -67,6 +68,12 @@ class _LoadingScreenState extends State<LoadingScreen>
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     )..repeat(reverse: true);
+    _taglineColor = ColorTween(
+      begin: AppTheme.connectedGreen.withValues(alpha: 0.75),
+      end: AppTheme.primaryBlue.withValues(alpha: 0.95),
+    ).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
   }
 
   @override
@@ -100,12 +107,25 @@ class _LoadingScreenState extends State<LoadingScreen>
                       ),
                 ),
                 const SizedBox(height: 6),
-                Text(
-                  'Preparing secure tunnel',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.white.withValues(alpha: 0.7),
-                        letterSpacing: 0.4,
+                AnimatedBuilder(
+                  animation: _pulseController,
+                  builder: (context, _) {
+                    final scale = 0.96 + (0.08 * _pulseController.value);
+                    return Transform.scale(
+                      scale: scale,
+                      child: Text(
+                        'سریع • هوشمند • امن',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleSmall
+                            ?.copyWith(
+                              color: _taglineColor.value,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 1.4,
+                            ),
                       ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 20),
                 _LoadingDots(animation: _pulseController),
