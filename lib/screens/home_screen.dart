@@ -22,14 +22,16 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
+class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   Map<String, dynamic>? _profileData;
   bool _isRefreshingProfile = false;
   Timer? _profileRefreshTimer;
   DateTime? _nextProfileRefreshAllowedAt;
   late final AnimationController _adBlockPulseController;
   late final Animation<double> _adBlockScale;
+  late final AnimationController _expiryPulseController;
+  late final Animation<double> _expiryPulse;
+  late final AnimationController _expiryMarqueeController;
 
   @override
   void initState() {
@@ -50,6 +52,17 @@ class _HomeScreenState extends State<HomeScreen>
     _adBlockScale = Tween<double>(begin: 1.0, end: 1.08).animate(
       CurvedAnimation(parent: _adBlockPulseController, curve: Curves.easeInOut),
     );
+    _expiryPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2500),
+    );
+    _expiryPulse = Tween<double>(begin: 1.0, end: 0.2).animate(
+      CurvedAnimation(parent: _expiryPulseController, curve: Curves.easeInOut),
+    );
+    _expiryMarqueeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 9000),
+    );
   }
 
   void _onProviderChanged() {}
@@ -58,6 +71,8 @@ class _HomeScreenState extends State<HomeScreen>
   void dispose() {
     _profileRefreshTimer?.cancel();
     _adBlockPulseController.dispose();
+    _expiryPulseController.dispose();
+    _expiryMarqueeController.dispose();
     super.dispose();
   }
 
@@ -269,6 +284,29 @@ class _HomeScreenState extends State<HomeScreen>
         _adBlockPulseController.value != 0) {
       _adBlockPulseController.stop();
       _adBlockPulseController.value = 0;
+    }
+  }
+
+  void _updateExpiryAnimations(bool isExpiring) {
+    if (isExpiring) {
+      if (!_expiryPulseController.isAnimating) {
+        _expiryPulseController.repeat(reverse: true);
+      }
+      if (!_expiryMarqueeController.isAnimating) {
+        _expiryMarqueeController.repeat();
+      }
+      return;
+    }
+
+    if (_expiryPulseController.isAnimating ||
+        _expiryPulseController.value != 0) {
+      _expiryPulseController.stop();
+      _expiryPulseController.value = 0;
+    }
+    if (_expiryMarqueeController.isAnimating ||
+        _expiryMarqueeController.value != 0) {
+      _expiryMarqueeController.stop();
+      _expiryMarqueeController.value = 0;
     }
   }
 
@@ -558,6 +596,8 @@ class _HomeScreenState extends State<HomeScreen>
     final expiryDate = (_profileData?['expiry_jalali'] ?? '-') as String;
     final totalDays = _dateDiffInDays(activationDate, expiryDate);
     final remainingDays = _dateDiffFromNow(expiryDate);
+    final isExpiring = remainingDays <= 5;
+    _updateExpiryAnimations(isExpiring);
     final normalizedRemaining = remainingDays < 0
         ? 0
         : (remainingDays > totalDays ? totalDays : remainingDays);
@@ -576,163 +616,205 @@ class _HomeScreenState extends State<HomeScreen>
           color: isGlassBackground
               ? AppTheme.cardDark.withOpacity(0.75)
               : AppTheme.cardDark,
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Stack(
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          'پروفایل شما',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          expiryDate,
-                          style: const TextStyle(
-                            color: AppTheme.textGrey,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                    Row(
-                      children: [
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Text(
-                              userName,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 15,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'شماره: $phoneNumber',
-                              style: const TextStyle(
-                                color: AppTheme.textGrey,
-                                fontSize: 12,
-                              ),
-                            ),
+                if (isExpiring)
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Colors.amber.withValues(alpha: 0.25),
+                            Colors.redAccent.withValues(alpha: 0.22),
                           ],
                         ),
-                        const SizedBox(width: 12),
-                        GestureDetector(
-                          onTap:
-                              _isRefreshingProfile ||
-                                  (_nextProfileRefreshAllowedAt != null &&
-                                      DateTime.now().isBefore(
-                                        _nextProfileRefreshAllowedAt!,
-                                      ))
-                              ? null
-                              : _refreshProfileData,
-                          child: AnimatedRotation(
-                            turns: _isRefreshingProfile ? 1.0 : 0.0,
-                            duration: const Duration(milliseconds: 700),
-                            curve: Curves.easeInOut,
-                            child: Container(
-                              width: 48,
-                              height: 48,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: AppTheme.surfaceContainer,
-                              ),
-                              child: const Icon(
-                                Icons.refresh,
-                                color: Colors.white,
-                                size: 24,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'انقضا: $expiryDate',
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
                       ),
                     ),
-                    Text(
-                      'تاریخ ساخت: $activationDate',
-                      style: const TextStyle(
-                        color: AppTheme.textGrey,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'از $totalDays روز',
-                      style: const TextStyle(
-                        color: AppTheme.textGrey,
-                        fontSize: 11,
-                      ),
-                    ),
-                    Text(
-                      'زمان باقی مانده: $remainingDays روز',
-                      style: TextStyle(
-                        color: remainingDays <= 3
-                            ? Colors.redAccent
-                            : (remainingDays <= 10
-                                  ? Colors.amber
-                                  : AppTheme.primaryGreen),
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: Stack(
+                  ),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Container(height: 8, color: AppTheme.surfaceContainer),
-                      Positioned.fill(
-                        child: Align(
-                          alignment: Alignment.centerRight,
-                          child: FractionallySizedBox(
-                            widthFactor: remainingRatio.clamp(0.0, 1.0),
-                            alignment: Alignment.centerRight,
-                            child: Container(
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.centerRight,
-                                  end: Alignment.centerLeft,
-                                  colors: [
-                                    AppTheme.primaryBlue,
-                                    AppTheme.primaryGreen,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                'پروفایل شما',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                expiryDate,
+                                style: const TextStyle(
+                                  color: AppTheme.textGrey,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ],
+                          ),
+                          Row(
+                            children: [
+                              AnimatedBuilder(
+                                animation: _expiryPulse,
+                                builder: (context, child) {
+                                  return Opacity(
+                                    opacity: isExpiring
+                                        ? _expiryPulse.value
+                                        : 1.0,
+                                    child: child,
+                                  );
+                                },
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      userName,
+                                      style: const TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 15,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      'شماره: $phoneNumber',
+                                      style: const TextStyle(
+                                        color: AppTheme.textGrey,
+                                        fontSize: 12,
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),
+                              const SizedBox(width: 12),
+                              GestureDetector(
+                                onTap: _isRefreshingProfile ||
+                                        (_nextProfileRefreshAllowedAt != null &&
+                                            DateTime.now().isBefore(
+                                              _nextProfileRefreshAllowedAt!,
+                                            ))
+                                    ? null
+                                    : _refreshProfileData,
+                                child: AnimatedRotation(
+                                  turns: _isRefreshingProfile ? 1.0 : 0.0,
+                                  duration: const Duration(milliseconds: 700),
+                                  curve: Curves.easeInOut,
+                                  child: Container(
+                                    width: 48,
+                                    height: 48,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      color: AppTheme.surfaceContainer,
+                                    ),
+                                    child: const Icon(
+                                      Icons.refresh,
+                                      color: Colors.white,
+                                      size: 24,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      if (isExpiring) ...[
+                        const SizedBox(height: 12),
+                        _ExpiringMarquee(
+                          controller: _expiryMarqueeController,
+                          onTap: _openAdminChat,
+                        ),
+                      ],
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'انقضا: $expiryDate',
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
+                          Text(
+                            'تاریخ ساخت: $activationDate',
+                            style: const TextStyle(
+                              color: AppTheme.textGrey,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'از $totalDays روز',
+                            style: const TextStyle(
+                              color: AppTheme.textGrey,
+                              fontSize: 11,
+                            ),
+                          ),
+                          Text(
+                            'زمان باقی مانده: $remainingDays روز',
+                            style: TextStyle(
+                              color: remainingDays <= 3
+                                  ? Colors.redAccent
+                                  : (remainingDays <= 10
+                                        ? Colors.amber
+                                        : AppTheme.primaryGreen),
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Stack(
+                          children: [
+                            Container(
+                              height: 8,
+                              color: AppTheme.surfaceContainer,
+                            ),
+                            Positioned.fill(
+                              child: Align(
+                                alignment: Alignment.centerRight,
+                                child: FractionallySizedBox(
+                                  widthFactor: remainingRatio.clamp(0.0, 1.0),
+                                  alignment: Alignment.centerRight,
+                                  child: Container(
+                                    height: 8,
+                                    decoration: const BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.centerRight,
+                                        end: Alignment.centerLeft,
+                                        colors: [
+                                          AppTheme.primaryBlue,
+                                          AppTheme.primaryGreen,
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -740,7 +822,7 @@ class _HomeScreenState extends State<HomeScreen>
                 ),
               ],
             ),
-          ),
+          )
         );
       },
     );
@@ -899,5 +981,81 @@ class _HomeScreenState extends State<HomeScreen>
     }
     final gd = gDayNo + 1;
     return DateTime(gy, gm + 1, gd);
+  }
+}
+
+class _ExpiringMarquee extends StatelessWidget {
+  final Animation<double> controller;
+  final VoidCallback onTap;
+
+  const _ExpiringMarquee({
+    required this.controller,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const text =
+        'مدت زمان اشتراک شما در حال به پایان رسیدن میباشد جهت تمدید اشتراک اینجا کلیک کنید';
+    final textStyle = TextStyle(
+      color: Colors.white.withValues(alpha: 0.95),
+      fontWeight: FontWeight.w600,
+      fontSize: 12,
+    );
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        height: 36,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              Colors.redAccent.withValues(alpha: 0.8),
+              Colors.amber.withValues(alpha: 0.85),
+            ],
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: ClipRect(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final painter = TextPainter(
+                text: TextSpan(text: text, style: textStyle),
+                textDirection: TextDirection.ltr,
+                maxLines: 1,
+              )..layout();
+              final textWidth = painter.width;
+              final minX = -textWidth;
+              final maxX = constraints.maxWidth;
+
+              return AnimatedBuilder(
+                animation: controller,
+                builder: (context, _) {
+                  final t = controller.value;
+                  final dx = minX + (maxX - minX) * t;
+                  return Transform.translate(
+                    offset: Offset(dx, 0),
+                    child: Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        text,
+                        style: textStyle,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.visible,
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ),
+    );
   }
 }
