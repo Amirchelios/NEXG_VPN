@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../providers/v2ray_provider.dart';
 import '../providers/language_provider.dart';
 import '../utils/app_localizations.dart';
@@ -32,6 +33,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late final AnimationController _expiryPulseController;
   late final Animation<double> _expiryPulse;
   late final AnimationController _expiryMarqueeController;
+  late final Future<String> _versionFuture;
 
   @override
   void initState() {
@@ -63,6 +65,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       vsync: this,
       duration: const Duration(milliseconds: 9000),
     );
+    _versionFuture = _loadVersion();
   }
 
   void _onProviderChanged() {}
@@ -312,6 +315,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
   }
 
+  Future<String> _loadVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      return 'v${info.version}';
+    } catch (_) {
+      return '';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<LanguageProvider>(
@@ -322,7 +334,30 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             child: Scaffold(
               backgroundColor: Colors.transparent,
               appBar: AppBar(
-                title: Text(context.tr(TranslationKeys.homeTitle)),
+                title: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(context.tr(TranslationKeys.homeTitle)),
+                    const SizedBox(width: 6),
+                    FutureBuilder<String>(
+                      future: _versionFuture,
+                      builder: (context, snapshot) {
+                        final version = snapshot.data;
+                        if (version == null || version.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+                        return Text(
+                          version,
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
                 backgroundColor: Colors.transparent,
                 elevation: 0,
                 centerTitle: false,

@@ -43,7 +43,7 @@ android {
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = 54
-        versionName = "3.8.4"
+        versionName = "1.0.0"
 
         manifestPlaceholders.put("io.flutter.embedding.android.EnableImpeller", "false")
     }
