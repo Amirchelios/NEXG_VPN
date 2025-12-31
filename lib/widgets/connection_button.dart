@@ -935,6 +935,7 @@ class _ConnectionButtonState extends State<ConnectionButton>
                       left: 0,
                       child: _buildPageArrow(
                         icon: Icons.arrow_back_ios_new,
+                        label: 'SMART',
                         onTap: () {
                           _pageController.animateToPage(
                             1,
@@ -954,6 +955,7 @@ class _ConnectionButtonState extends State<ConnectionButton>
                       right: 0,
                       child: _buildPageArrow(
                         icon: Icons.arrow_forward_ios,
+                        label: 'XRAY',
                         onTap: () {
                           _pageController.animateToPage(
                             0,
@@ -1436,33 +1438,49 @@ class _ConnectionButtonState extends State<ConnectionButton>
 
   Widget _buildPageArrow({
     required IconData icon,
+    required String label,
     required VoidCallback onTap,
   }) {
     return Material(
       color: Colors.transparent,
-      child: ScaleTransition(
-        scale: _arrowPulseAnimation,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(18),
-          child: Container(
-            width: 44,
-            height: 44,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: AppTheme.cardDark.withValues(alpha: 0.9),
-              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.25),
-                  blurRadius: 8,
-                  offset: const Offset(0, 4),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ScaleTransition(
+            scale: _arrowPulseAnimation,
+            child: InkWell(
+              onTap: onTap,
+              borderRadius: BorderRadius.circular(22),
+              child: Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppTheme.cardDark.withValues(alpha: 0.9),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.18)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.25),
+                      blurRadius: 10,
+                      offset: const Offset(0, 5),
+                    ),
+                  ],
                 ),
-              ],
+                child: Icon(icon, size: 22, color: Colors.white),
+              ),
             ),
-            child: Icon(icon, size: 20, color: Colors.white),
           ),
-        ),
+          const SizedBox(height: 6),
+          Text(
+            label,
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.7),
+              fontSize: 10,
+              fontWeight: FontWeight.w700,
+              letterSpacing: 0.6,
+            ),
+          ),
+        ],
       ),
     );
   }

@@ -117,7 +117,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     });
     try {
       _nextProfileRefreshAllowedAt = DateTime.now().add(
-        const Duration(minutes: 1),
+        const Duration(minutes: 4),
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -418,69 +418,75 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           );
                         }
 
-                        return SingleChildScrollView(
-                          physics: const BouncingScrollPhysics(),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 20),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                _buildUserProfileCard(),
-
-                                const SizedBox(height: 16),
-
-                                // Server selector (now includes Proxy Mode Switch)
-                                AnimatedSwitcher(
-                                  duration: const Duration(milliseconds: 550),
-                                  switchInCurve: Curves.easeOutQuart,
-                                  switchOutCurve: Curves.easeInQuart,
-                                  transitionBuilder: (child, animation) {
-                                    final slide = Tween<Offset>(
-                                      begin: const Offset(0, 0.06),
-                                      end: Offset.zero,
-                                    ).animate(animation);
-                                    return FadeTransition(
-                                      opacity: animation,
-                                      child: SlideTransition(
-                                        position: slide,
-                                        child: child,
-                                      ),
-                                    );
-                                  },
-                                  child:
-                                      provider.connectMode == ConnectMode.normal
-                                      ? const Padding(
-                                          key: ValueKey('server_selector'),
-                                          padding: EdgeInsets.only(bottom: 20),
-                                          child: ServerSelector(),
-                                        )
-                                      : const SizedBox(
-                                          key: ValueKey('no_server_selector'),
-                                          height: 20,
-                                        ),
-                                ),
-
-                                // Connection button
-                                AnimatedSlide(
-                                  duration: const Duration(milliseconds: 550),
-                                  curve: Curves.easeOutQuart,
-                                  offset:
-                                      provider.connectMode == ConnectMode.smart
-                                      ? const Offset(0, -0.03)
-                                      : Offset.zero,
-                          child: AnimatedOpacity(
-                            duration: const Duration(milliseconds: 550),
-                            curve: Curves.easeOutQuart,
-                            opacity: 1,
-                            child: ConnectionButton(
-                              isEnabled:
-                                  !_isAccessSuspended() && !_isProfileExpired(),
+                        return RefreshIndicator(
+                          onRefresh: _refreshProfileData,
+                          color: AppTheme.primaryGreen,
+                          child: SingleChildScrollView(
+                            physics: const AlwaysScrollableScrollPhysics(
+                              parent: BouncingScrollPhysics(),
                             ),
-                          ),
-                                ),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 20),
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  _buildUserProfileCard(),
 
-                                const SizedBox(height: 40),
-                              ],
+                                  const SizedBox(height: 16),
+
+                                  // Server selector (now includes Proxy Mode Switch)
+                                  AnimatedSwitcher(
+                                    duration: const Duration(milliseconds: 550),
+                                    switchInCurve: Curves.easeOutQuart,
+                                    switchOutCurve: Curves.easeInQuart,
+                                    transitionBuilder: (child, animation) {
+                                      final slide = Tween<Offset>(
+                                        begin: const Offset(0, 0.06),
+                                        end: Offset.zero,
+                                      ).animate(animation);
+                                      return FadeTransition(
+                                        opacity: animation,
+                                        child: SlideTransition(
+                                          position: slide,
+                                          child: child,
+                                        ),
+                                      );
+                                    },
+                                    child: provider.connectMode ==
+                                            ConnectMode.normal
+                                        ? const Padding(
+                                            key: ValueKey('server_selector'),
+                                            padding: EdgeInsets.only(bottom: 20),
+                                            child: ServerSelector(),
+                                          )
+                                        : const SizedBox(
+                                            key: ValueKey('no_server_selector'),
+                                            height: 20,
+                                          ),
+                                  ),
+
+                                  // Connection button
+                                  AnimatedSlide(
+                                    duration: const Duration(milliseconds: 550),
+                                    curve: Curves.easeOutQuart,
+                                    offset: provider.connectMode ==
+                                            ConnectMode.smart
+                                        ? const Offset(0, -0.03)
+                                        : Offset.zero,
+                                    child: AnimatedOpacity(
+                                      duration: const Duration(milliseconds: 550),
+                                      curve: Curves.easeOutQuart,
+                                      opacity: 1,
+                                      child: ConnectionButton(
+                                        isEnabled: !_isAccessSuspended() &&
+                                            !_isProfileExpired(),
+                                      ),
+                                    ),
+                                  ),
+
+                                  const SizedBox(height: 40),
+                                ],
+                              ),
                             ),
                           ),
                         );
