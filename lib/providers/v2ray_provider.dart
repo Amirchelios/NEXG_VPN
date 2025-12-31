@@ -66,6 +66,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   ConnectMode get connectMode => _connectMode;
   SmartFlowState get smartFlowState => _smartFlowState;
   bool get adBlockEnabled => _adBlockEnabled;
+  bool get isDisconnecting => _isDisconnecting;
 
   void setSmartFlowState(SmartFlowState state) {
     if (_smartFlowState == state) {

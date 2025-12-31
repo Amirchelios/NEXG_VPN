@@ -836,6 +836,7 @@ class _ConnectionButtonState extends State<ConnectionButton>
         final isConnected = provider.activeConfig != null;
         final isConnecting = provider.isConnecting;
         final selectedConfig = provider.selectedConfig;
+        final isDisconnecting = provider.isDisconnecting;
         final hasConfigs = provider.configs.isNotEmpty;
 
         return Column(
@@ -884,6 +885,7 @@ class _ConnectionButtonState extends State<ConnectionButton>
                                   isCustom: false,
                                   isConnected: isConnected,
                                   isConnecting: isConnecting,
+                                  isDisconnecting: isDisconnecting,
                                   selectedConfig: selectedConfig,
                                   hasConfigs: hasConfigs,
                                   smartFlowState: provider.smartFlowState,
@@ -897,6 +899,7 @@ class _ConnectionButtonState extends State<ConnectionButton>
                                   isCustom: true,
                                   isConnected: isConnected,
                                   isConnecting: isConnecting,
+                                  isDisconnecting: isDisconnecting,
                                   selectedConfig: selectedConfig,
                                   hasConfigs: hasConfigs,
                                   smartFlowState: provider.smartFlowState,
@@ -911,6 +914,7 @@ class _ConnectionButtonState extends State<ConnectionButton>
                   
                   if (!isConnected &&
                       !isConnecting &&
+                      !isDisconnecting &&
                       provider.smartFlowState == SmartFlowState.idle &&
                       _pageIndex == 0)
                     Positioned(
@@ -928,6 +932,7 @@ class _ConnectionButtonState extends State<ConnectionButton>
                     ),
                   if (!isConnected &&
                       !isConnecting &&
+                      !isDisconnecting &&
                       provider.smartFlowState == SmartFlowState.idle &&
                       _pageIndex == 1)
                     Positioned(
@@ -960,18 +965,23 @@ class _ConnectionButtonState extends State<ConnectionButton>
     required bool isCustom,
     required bool isConnected,
     required bool isConnecting,
+    required bool isDisconnecting,
     required V2RayConfig? selectedConfig,
     required bool hasConfigs,
     required SmartFlowState smartFlowState,
   }) {
     final isReplacing = smartFlowState == SmartFlowState.searching && !isCustom;
     final isTesting = smartFlowState == SmartFlowState.testing && !isCustom;
-    final effectiveConnecting = isConnecting || isReplacing || isTesting;
-    final isBusy = isConnecting || smartFlowState != SmartFlowState.idle;
-    final buttonIcon = _getButtonIcon(isConnected, effectiveConnecting);
+    final effectiveConnecting =
+        isConnecting || isDisconnecting || isReplacing || isTesting;
+    final isBusy =
+        isConnecting || isDisconnecting || smartFlowState != SmartFlowState.idle;
+    final buttonIcon =
+        _getButtonIcon(isConnected, effectiveConnecting, isDisconnecting);
     final buttonText = _getButtonText(
       isConnected,
       effectiveConnecting,
+      isDisconnecting,
       hasConfigs,
       isCustom,
       smartFlowState,
@@ -1472,14 +1482,19 @@ class _ConnectionButtonState extends State<ConnectionButton>
     }
   }
 
-  IconData _getButtonIcon(bool isConnected, bool isConnecting) {
-    if (isConnecting) return Icons.sync;
+  IconData _getButtonIcon(
+    bool isConnected,
+    bool isConnecting,
+    bool isDisconnecting,
+  ) {
+    if (isConnecting || isDisconnecting) return Icons.sync;
     return isConnected ? Icons.power_off : Icons.power_settings_new;
   }
 
   String _getButtonText(
     bool isConnected,
     bool isConnecting,
+    bool isDisconnecting,
     bool hasConfigs,
     bool isCustom,
     SmartFlowState smartFlowState,
@@ -1487,6 +1502,7 @@ class _ConnectionButtonState extends State<ConnectionButton>
     if (!isCustom && smartFlowState == SmartFlowState.searching) {
       return 'در حال جایگزینی سرور';
     }
+    if (isDisconnecting) return 'در حال قطع اتصال...';
     if (isConnecting) return 'در حال اتصال...';
     if (!isCustom && smartFlowState == SmartFlowState.testing) {
       return 'در حال تست سرور';
