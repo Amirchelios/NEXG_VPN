@@ -1,4 +1,4 @@
-package com.cloud.pira
+package com.ngvpn
 
 import android.app.DownloadManager
 import android.content.Context
@@ -14,7 +14,7 @@ import java.io.File
 
 class DownloadMethodChannel(private val context: Context) : MethodCallHandler {
     companion object {
-        const val CHANNEL = "com.cloud.pira/download"
+        const val CHANNEL = "com.ngvpn/download"
 
         fun registerWith(flutterEngine: FlutterEngine, context: Context) {
             val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)

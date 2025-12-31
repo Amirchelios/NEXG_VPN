@@ -1,4 +1,4 @@
-package com.cloud.pira
+package com.ngvpn
 
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -11,13 +11,13 @@ import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
-import com.cloud.pira.DownloadMethodChannel
+import com.ngvpn.DownloadMethodChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class MainActivity : FlutterActivity() {
-    private val CHANNEL = "com.cloud.pira/vpn_control"
+    private val CHANNEL = "com.ngvpn/vpn_control"
     private var vpnControlChannel: MethodChannel? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {

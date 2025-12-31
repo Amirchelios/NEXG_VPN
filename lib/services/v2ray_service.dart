@@ -102,7 +102,7 @@ class V2RayService extends ChangeNotifier {
           return _cachedAppList!;
         }
 
-        const platform = MethodChannel('com.cloud.pira/app_list');
+        const platform = MethodChannel('com.ngvpn/app_list');
         final List<dynamic> result = await platform.invokeMethod(
           'getInstalledApps',
         );

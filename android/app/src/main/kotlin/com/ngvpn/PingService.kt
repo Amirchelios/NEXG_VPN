@@ -1,4 +1,4 @@
-package com.cloud.pira
+package com.ngvpn
 
 import android.content.Context
 import android.net.ConnectivityManager

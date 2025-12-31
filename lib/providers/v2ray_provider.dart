@@ -47,7 +47,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   bool _isDisconnecting = false;
 
   // Method channel for VPN control
-  static const platform = MethodChannel('com.cloud.pira/vpn_control');
+  static const platform = MethodChannel('com.ngvpn/vpn_control');
 
   List<V2RayConfig> get configs => _configs;
   List<Subscription> get subscriptions => _subscriptions;

@@ -1,4 +1,4 @@
-package com.cloud.pira
+package com.ngvpn
 
 import android.content.Context
 import io.flutter.embedding.engine.FlutterEngine
@@ -15,7 +15,7 @@ class PingMethodChannel(private val context: Context) : MethodCallHandler {
     private var methodChannel: MethodChannel? = null
 
     companion object {
-        const val CHANNEL = "com.cloud.pira/ping"
+        const val CHANNEL = "com.ngvpn/ping"
 
         fun registerWith(flutterEngine: FlutterEngine, context: Context) {
             val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)

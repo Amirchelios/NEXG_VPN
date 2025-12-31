@@ -1,4 +1,4 @@
-package com.cloud.pira
+package com.ngvpn
 
 import android.content.Context
 import android.content.pm.ApplicationInfo
@@ -22,7 +22,7 @@ import java.io.ByteArrayOutputStream
 
 class AppListMethodChannel(private val context: Context) : MethodCallHandler {
     companion object {
-        const val CHANNEL = "com.cloud.pira/app_list"
+        const val CHANNEL = "com.ngvpn/app_list"
 
         fun registerWith(flutterEngine: FlutterEngine, context: Context) {
             val channel = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL)

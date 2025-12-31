@@ -80,7 +80,7 @@ class _WallpaperStoreScreenState extends State<WallpaperStoreScreen> {
   Future<void> _downloadWallpaper(String url) async {
     try {
       // Use Android Download Manager for downloading
-      const platform = MethodChannel('com.cloud.pira/download');
+      const platform = MethodChannel('com.ngvpn/download');
 
       // Generate filename from URL
       final String fileName = url.split('/').last;
@@ -441,7 +441,7 @@ class _FullScreenImageViewerState extends State<FullScreenImageViewer> {
   Future<void> _downloadImage(String url) async {
     try {
       // Use Android Download Manager for downloading
-      const platform = MethodChannel('com.cloud.pira/download');
+      const platform = MethodChannel('com.ngvpn/download');
 
       // Generate filename from URL
       final String fileName = url.split('/').last;

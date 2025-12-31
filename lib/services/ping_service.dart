@@ -48,7 +48,7 @@ class PingResult {
 }
 
 class NativePingService {
-  static const MethodChannel _channel = MethodChannel('com.cloud.pira/ping');
+  static const MethodChannel _channel = MethodChannel('com.ngvpn/ping');
 
   // Cache for ping results
   static final Map<String, PingResult> _pingCache = {};
