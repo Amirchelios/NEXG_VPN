@@ -93,6 +93,8 @@ class MyApp extends StatefulWidget {
 
 class _MyAppState extends State<MyApp> {
   final UpdateService _updateService = UpdateService();
+  final GlobalKey<NavigatorState> _navigatorKey =
+      GlobalKey<NavigatorState>();
   Timer? _cleanupTimer;
   WallpaperService? _wallpaperService;
 
@@ -122,9 +124,13 @@ class _MyAppState extends State<MyApp> {
   }
 
   Future<void> _checkForUpdates() async {
-    final update = await _updateService.checkForUpdates();
-    if (update != null && mounted) {
-      _updateService.showUpdateDialog(context, update);
+    final remoteVersion = await _updateService.checkForAdminUpdate();
+    if (remoteVersion != null && mounted) {
+      final dialogContext = _navigatorKey.currentContext;
+      if (dialogContext == null) {
+        return;
+      }
+      _updateService.showAdminUpdateDialog(dialogContext, remoteVersion);
     }
   }
 
@@ -153,6 +159,7 @@ class _MyAppState extends State<MyApp> {
           return MaterialApp(
             title: 'NG VPN',
             debugShowCheckedModeBanner: false,
+            navigatorKey: _navigatorKey,
             theme: AppTheme.darkTheme(languageProvider.currentLanguage.code),
             locale: languageProvider.locale,
             localizationsDelegates: const [

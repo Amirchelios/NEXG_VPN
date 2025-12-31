@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import '../theme/app_theme.dart';
 import '../services/update_service.dart';
-import '../models/app_update.dart';
 import '../utils/app_localizations.dart';
 import '../providers/language_provider.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -28,8 +27,6 @@ class ToolsScreen extends StatefulWidget {
 }
 
 class _ToolsScreenState extends State<ToolsScreen> {
-  AppUpdate? _update;
-
   @override
   void initState() {
     super.initState();
@@ -38,11 +35,11 @@ class _ToolsScreenState extends State<ToolsScreen> {
 
   Future<void> _checkForUpdates() async {
     final updateService = UpdateService();
-    final update = await updateService.checkForUpdates();
-
-    setState(() {
-      _update = update;
-    });
+    final version = await updateService.checkForAdminUpdate();
+    if (!mounted || version == null) {
+      return;
+    }
+    updateService.showAdminUpdateDialog(context, version);
   }
 
   Future<void> _launchUrl(String url) async {
@@ -97,7 +94,6 @@ class _ToolsScreenState extends State<ToolsScreen> {
             body: ListView(
               padding: const EdgeInsets.all(16.0),
               children: [
-                if (_update != null) _buildUpdateCard(context, _update!),
                 _buildToolCard(
                   context,
                   title: context.tr(TranslationKeys.toolsLanguageSettings),
@@ -363,79 +359,4 @@ class _ToolsScreenState extends State<ToolsScreen> {
     );
   }
 
-  Widget _buildUpdateCard(BuildContext context, AppUpdate update) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16.0),
-      color: AppTheme.cardDark,
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.system_update,
-                    color: Colors.blue,
-                    size: 28,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'App Update Available',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        TrHelper.versionFormat(
-                          context,
-                          update.version,
-                          isNew: true,
-                        ),
-                        style: TextStyle(fontSize: 14, color: Colors.grey[400]),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Text(update.messText, style: const TextStyle(color: Colors.white)),
-            const SizedBox(height: 16),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Text(
-                  TrHelper.versionFormat(context, AppUpdate.currentAppVersion),
-                  style: TextStyle(fontSize: 12, color: Colors.grey[400]),
-                ),
-                const Spacer(),
-                ElevatedButton(
-                  onPressed: () => _launchUrl(update.url.trim()),
-                  style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primaryBlue),
-                  child: Text(context.tr('tools.update_now')),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }

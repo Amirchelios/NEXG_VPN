@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../services/update_service.dart';
 import '../providers/v2ray_provider.dart';
 import '../providers/language_provider.dart';
 import '../utils/app_localizations.dart';
@@ -34,6 +35,10 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
   late final Animation<double> _expiryPulse;
   late final AnimationController _expiryMarqueeController;
   late final Future<String> _versionFuture;
+  late final Future<String?> _updateVersionFuture;
+  late final AnimationController _updatePulseController;
+  late final Animation<double> _updatePulseScale;
+  late final Animation<Color?> _updatePulseColor;
 
   @override
   void initState() {
@@ -66,6 +71,20 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       duration: const Duration(milliseconds: 9000),
     );
     _versionFuture = _loadVersion();
+    _updateVersionFuture = UpdateService().checkForAdminUpdate();
+    _updatePulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1400),
+    )..repeat(reverse: true);
+    _updatePulseScale = Tween<double>(begin: 0.96, end: 1.04).animate(
+      CurvedAnimation(parent: _updatePulseController, curve: Curves.easeInOut),
+    );
+    _updatePulseColor = ColorTween(
+      begin: Colors.amber,
+      end: Colors.redAccent,
+    ).animate(
+      CurvedAnimation(parent: _updatePulseController, curve: Curves.easeInOut),
+    );
   }
 
   void _onProviderChanged() {}
@@ -76,6 +95,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     _adBlockPulseController.dispose();
     _expiryPulseController.dispose();
     _expiryMarqueeController.dispose();
+    _updatePulseController.dispose();
     super.dispose();
   }
 
@@ -352,6 +372,50 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             color: Colors.white70,
                             fontSize: 12,
                             fontWeight: FontWeight.w700,
+                          ),
+                        );
+                      },
+                    ),
+                    FutureBuilder<String?>(
+                      future: _updateVersionFuture,
+                      builder: (context, snapshot) {
+                        final remote = snapshot.data;
+                        if (remote == null || remote.isEmpty) {
+                          return const SizedBox.shrink();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(left: 8),
+                          child: ScaleTransition(
+                            scale: _updatePulseScale,
+                            child: InkWell(
+                              onTap: _openAdminChat,
+                              borderRadius: BorderRadius.circular(10),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _updatePulseColor.value
+                                          ?.withValues(alpha: 0.18) ??
+                                      Colors.redAccent.withValues(alpha: 0.18),
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: _updatePulseColor.value ??
+                                        Colors.redAccent,
+                                  ),
+                                ),
+                                child: Text(
+                                  'ورژن جدید',
+                                  style: TextStyle(
+                                    color: _updatePulseColor.value ??
+                                        Colors.redAccent,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ),
                           ),
                         );
                       },
