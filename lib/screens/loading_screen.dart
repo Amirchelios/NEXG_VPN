@@ -92,7 +92,7 @@ class _LoadingScreenState extends State<LoadingScreen>
                 ),
                 const SizedBox(height: 26),
                 Text(
-                  'NEXG VPN',
+                  'NG VPN',
                   style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w700,

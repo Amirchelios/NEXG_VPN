@@ -838,7 +838,7 @@ class _PrivacyWelcomeScreenState extends State<PrivacyWelcomeScreen> {
                       height: 24,
                     ),
                     label: const Text(
-                      'ProxyCloud',
+                      'NG VPN',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
