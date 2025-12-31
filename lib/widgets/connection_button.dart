@@ -861,6 +861,7 @@ class _ConnectionButtonState extends State<ConnectionButton>
                             controller: _pageController,
                             physics: isConnected ||
                                     isConnecting ||
+                                    !widget.isEnabled ||
                                     provider.smartFlowState !=
                                         SmartFlowState.idle
                                 ? const NeverScrollableScrollPhysics()
@@ -915,6 +916,7 @@ class _ConnectionButtonState extends State<ConnectionButton>
                   if (!isConnected &&
                       !isConnecting &&
                       !isDisconnecting &&
+                      widget.isEnabled &&
                       provider.smartFlowState == SmartFlowState.idle &&
                       _pageIndex == 0)
                     Positioned(
@@ -933,6 +935,7 @@ class _ConnectionButtonState extends State<ConnectionButton>
                   if (!isConnected &&
                       !isConnecting &&
                       !isDisconnecting &&
+                      widget.isEnabled &&
                       provider.smartFlowState == SmartFlowState.idle &&
                       _pageIndex == 1)
                     Positioned(

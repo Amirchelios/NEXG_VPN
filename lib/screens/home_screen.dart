@@ -287,23 +287,25 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     }
   }
 
-  void _updateExpiryAnimations(bool isExpiring) {
-    if (isExpiring) {
+  void _updateExpiryAnimations({
+    required bool pulse,
+    required bool marquee,
+  }) {
+    if (pulse) {
       if (!_expiryPulseController.isAnimating) {
         _expiryPulseController.repeat(reverse: true);
       }
-      if (!_expiryMarqueeController.isAnimating) {
-        _expiryMarqueeController.repeat();
-      }
-      return;
-    }
-
-    if (_expiryPulseController.isAnimating ||
+    } else if (_expiryPulseController.isAnimating ||
         _expiryPulseController.value != 0) {
       _expiryPulseController.stop();
       _expiryPulseController.value = 0;
     }
-    if (_expiryMarqueeController.isAnimating ||
+
+    if (marquee) {
+      if (!_expiryMarqueeController.isAnimating) {
+        _expiryMarqueeController.repeat();
+      }
+    } else if (_expiryMarqueeController.isAnimating ||
         _expiryMarqueeController.value != 0) {
       _expiryMarqueeController.stop();
       _expiryMarqueeController.value = 0;
@@ -466,14 +468,15 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                                       provider.connectMode == ConnectMode.smart
                                       ? const Offset(0, -0.03)
                                       : Offset.zero,
-                                  child: AnimatedOpacity(
-                                    duration: const Duration(milliseconds: 550),
-                                    curve: Curves.easeOutQuart,
-                                    opacity: 1,
-                                    child: ConnectionButton(
-                                      isEnabled: !_isAccessSuspended(),
-                                    ),
-                                  ),
+                          child: AnimatedOpacity(
+                            duration: const Duration(milliseconds: 550),
+                            curve: Curves.easeOutQuart,
+                            opacity: 1,
+                            child: ConnectionButton(
+                              isEnabled:
+                                  !_isAccessSuspended() && !_isProfileExpired(),
+                            ),
+                          ),
                                 ),
 
                                 const SizedBox(height: 40),
@@ -596,8 +599,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     final expiryDate = (_profileData?['expiry_jalali'] ?? '-') as String;
     final totalDays = _dateDiffInDays(activationDate, expiryDate);
     final remainingDays = _dateDiffFromNow(expiryDate);
-    final isExpiring = remainingDays <= 5;
-    _updateExpiryAnimations(isExpiring);
+    final isExpired = remainingDays < 0;
+    final isExpiring = remainingDays <= 5 && remainingDays >= 0;
+    _updateExpiryAnimations(
+      pulse: isExpiring,
+      marquee: isExpiring || isExpired,
+    );
     final normalizedRemaining = remainingDays < 0
         ? 0
         : (remainingDays > totalDays ? totalDays : remainingDays);
@@ -620,7 +627,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
             borderRadius: BorderRadius.circular(16),
             child: Stack(
               children: [
-                if (isExpiring)
+                if (isExpiring || isExpired)
                   Positioned.fill(
                     child: Container(
                       decoration: BoxDecoration(
@@ -628,8 +635,12 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                           colors: [
-                            Colors.amber.withValues(alpha: 0.25),
-                            Colors.redAccent.withValues(alpha: 0.22),
+                            (isExpired
+                                ? Colors.redAccent
+                                : Colors.amber).withValues(alpha: 0.25),
+                            (isExpired
+                                ? Colors.red
+                                : Colors.redAccent).withValues(alpha: 0.22),
                           ],
                         ),
                       ),
@@ -730,11 +741,17 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                           ),
                         ],
                       ),
-                      if (isExpiring) ...[
+                      if (isExpiring || isExpired) ...[
                         const SizedBox(height: 12),
                         _ExpiringMarquee(
                           controller: _expiryMarqueeController,
                           onTap: _openAdminChat,
+                          text: isExpired
+                              ? 'اشتراک شما منقضی شده جهت تمدید اشتراک اینجا کلیک کنید تا به ادمین متصل شوید'
+                              : 'مدت زمان اشتراک شما در حال به پایان رسیدن میباشد جهت تمدید اشتراک اینجا کلیک کنید',
+                          gradientColors: isExpired
+                              ? [Colors.redAccent, Colors.red]
+                              : [Colors.redAccent, Colors.amber],
                         ),
                       ],
                       const SizedBox(height: 16),
@@ -770,7 +787,7 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
                             ),
                           ),
                           Text(
-                            'زمان باقی مانده: $remainingDays روز',
+                            _remainingLabel(remainingDays, expiryDate),
                             style: TextStyle(
                               color: remainingDays <= 3
                                   ? Colors.redAccent
@@ -879,6 +896,13 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
     return _profileData?['status'] == false;
   }
 
+  bool _isProfileExpired() {
+    if (_profileData == null) return false;
+    final expiryDate = (_profileData?['expiry_jalali'] ?? '-') as String;
+    if (expiryDate == '-') return false;
+    return _dateDiffFromNow(expiryDate) < 0;
+  }
+
   Future<void> _openAdminChat() async {
     try {
       final url = Uri.parse(
@@ -908,6 +932,33 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
       return 0;
     }
     return endDate.difference(DateTime.now()).inDays;
+  }
+
+  String _remainingLabel(int remainingDays, String expiryDate) {
+    if (remainingDays < 0) {
+      return 'زمان باقی مانده: منقضی شده';
+    }
+    if (remainingDays != 1) {
+      return 'زمان باقی مانده: $remainingDays روز';
+    }
+    final endDate = _parseDate(expiryDate);
+    if (endDate == null) {
+      return 'زمان باقی مانده: 1 روز';
+    }
+    final endOfDay = DateTime(
+      endDate.year,
+      endDate.month,
+      endDate.day,
+      23,
+      59,
+    );
+    var diff = endOfDay.difference(DateTime.now());
+    if (diff.isNegative) {
+      diff = Duration.zero;
+    }
+    final hours = diff.inHours;
+    final minutes = diff.inMinutes.remainder(60);
+    return 'مدت باقی مانده: $hours ساعت و $minutes دقیقه';
   }
 
   DateTime? _parseDate(String value) {
@@ -987,16 +1038,18 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
 class _ExpiringMarquee extends StatelessWidget {
   final Animation<double> controller;
   final VoidCallback onTap;
+  final String text;
+  final List<Color> gradientColors;
 
   const _ExpiringMarquee({
     required this.controller,
     required this.onTap,
+    required this.text,
+    required this.gradientColors,
   });
 
   @override
   Widget build(BuildContext context) {
-    const text =
-        'مدت زمان اشتراک شما در حال به پایان رسیدن میباشد جهت تمدید اشتراک اینجا کلیک کنید';
     final textStyle = TextStyle(
       color: Colors.white.withValues(alpha: 0.95),
       fontWeight: FontWeight.w600,
@@ -1013,8 +1066,8 @@ class _ExpiringMarquee extends StatelessWidget {
             begin: Alignment.centerLeft,
             end: Alignment.centerRight,
             colors: [
-              Colors.redAccent.withValues(alpha: 0.8),
-              Colors.amber.withValues(alpha: 0.85),
+              gradientColors.first.withValues(alpha: 0.8),
+              gradientColors.last.withValues(alpha: 0.85),
             ],
           ),
           borderRadius: BorderRadius.circular(12),
