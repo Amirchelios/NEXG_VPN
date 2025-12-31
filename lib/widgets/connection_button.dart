@@ -19,7 +19,8 @@ class ConnectionButton extends StatefulWidget {
   State<ConnectionButton> createState() => _ConnectionButtonState();
 }
 
-class _ConnectionButtonState extends State<ConnectionButton> {
+class _ConnectionButtonState extends State<ConnectionButton>
+    with SingleTickerProviderStateMixin {
   // Cancellation token for auto-select operation
   AutoSelectCancellationToken? _autoSelectCancellationToken;
 
@@ -29,11 +30,26 @@ class _ConnectionButtonState extends State<ConnectionButton> {
   late final PageController _pageController;
   int _pageIndex = 0;
   bool _pageInitialized = false;
+  late final AnimationController _arrowPulseController;
+  late final Animation<double> _arrowPulseAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _arrowPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    )..repeat(reverse: true);
+    _arrowPulseAnimation = Tween<double>(begin: 1.0, end: 1.08).animate(
+      CurvedAnimation(parent: _arrowPulseController, curve: Curves.easeInOut),
+    );
+  }
 
   @override
   void dispose() {
     _pageController.dispose();
     _autoSelectStatusStream.close();
+    _arrowPulseController.dispose();
     super.dispose();
   }
 
@@ -904,8 +920,8 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                         onTap: () {
                           _pageController.animateToPage(
                             1,
-                            duration: const Duration(milliseconds: 250),
-                            curve: Curves.easeOut,
+                            duration: const Duration(milliseconds: 600),
+                            curve: Curves.easeInOutCubic,
                           );
                         },
                       ),
@@ -921,8 +937,8 @@ class _ConnectionButtonState extends State<ConnectionButton> {
                         onTap: () {
                           _pageController.animateToPage(
                             0,
-                            duration: const Duration(milliseconds: 250),
-                            curve: Curves.easeOut,
+                            duration: const Duration(milliseconds: 600),
+                            curve: Curves.easeInOutCubic,
                           );
                         },
                       ),
@@ -1336,25 +1352,28 @@ class _ConnectionButtonState extends State<ConnectionButton> {
   }) {
     return Material(
       color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(18),
-        child: Container(
-          width: 36,
-          height: 36,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: AppTheme.cardDark.withValues(alpha: 0.9),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
+      child: ScaleTransition(
+        scale: _arrowPulseAnimation,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: AppTheme.cardDark.withValues(alpha: 0.9),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.15)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.25),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Icon(icon, size: 20, color: Colors.white),
           ),
-          child: Icon(icon, size: 16, color: Colors.white),
         ),
       ),
     );
