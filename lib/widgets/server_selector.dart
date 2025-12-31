@@ -133,14 +133,11 @@ class _ServerSelectorState extends State<ServerSelector> {
     final isGlassBackground = wallpaperService.isGlassBackgroundEnabled;
     final configs = provider.configs;
 
-    if (isLoadingServers) {
-      return _LoadingServerCard(isGlassBackground: isGlassBackground);
-    }
-
     if (configs.isEmpty) {
       return _EmptyServerCard(isGlassBackground: isGlassBackground);
     }
 
+    final isUpdating = provider.isUpdatingSubscriptions || isLoadingServers;
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -181,15 +178,101 @@ class _ServerSelectorState extends State<ServerSelector> {
               ),
             ),
             const SizedBox(height: 12),
-            SplitModeButton(
-              mode: _scoreMode,
-              scoredEnabled:
-                  _hasScores && provider.connectMode == ConnectMode.normal,
-              discoverEnabled:
-                  !_newLocked && provider.connectMode == ConnectMode.normal,
-              onChanged: _setScoreMode,
+            SizedBox(
+              height: 48,
+              child: AnimatedSwitcher(
+                duration: const Duration(milliseconds: 250),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                child: isUpdating
+                    ? const _UpdatingMarquee(
+                        key: ValueKey('updating_marquee'),
+                      )
+                    : SplitModeButton(
+                        key: const ValueKey('split_mode'),
+                        mode: _scoreMode,
+                        scoredEnabled: _hasScores &&
+                            provider.connectMode == ConnectMode.normal,
+                        discoverEnabled: !_newLocked &&
+                            provider.connectMode == ConnectMode.normal,
+                        onChanged: _setScoreMode,
+                      ),
+              ),
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _UpdatingMarquee extends StatefulWidget {
+  const _UpdatingMarquee({super.key});
+
+  @override
+  State<_UpdatingMarquee> createState() => _UpdatingMarqueeState();
+}
+
+class _UpdatingMarqueeState extends State<_UpdatingMarquee>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 5000),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    const text = 'در حال بروز رسانی سرور لطفا منتظر بمانید!';
+    final textStyle = TextStyle(
+      color: Colors.white.withValues(alpha: 0.85),
+      fontWeight: FontWeight.w600,
+    );
+
+    return Container(
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.surfaceCard),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: ClipRect(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final painter = TextPainter(
+              text: TextSpan(text: text, style: textStyle),
+              textDirection: TextDirection.rtl,
+            )..layout();
+            final textWidth = painter.width;
+            final minX = -textWidth;
+            final maxX = constraints.maxWidth;
+
+            return AnimatedBuilder(
+              animation: _controller,
+              builder: (context, _) {
+                final t = _controller.value;
+                final dx = minX + (maxX - minX) * t;
+                return Transform.translate(
+                  offset: Offset(dx, 0),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(text, style: textStyle),
+                  ),
+                );
+              },
+            );
+          },
         ),
       ),
     );
