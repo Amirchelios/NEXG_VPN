@@ -22,11 +22,14 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen>
+    with SingleTickerProviderStateMixin {
   Map<String, dynamic>? _profileData;
   bool _isRefreshingProfile = false;
   Timer? _profileRefreshTimer;
   DateTime? _nextProfileRefreshAllowedAt;
+  late final AnimationController _adBlockPulseController;
+  late final Animation<double> _adBlockScale;
 
   @override
   void initState() {
@@ -40,6 +43,13 @@ class _HomeScreenState extends State<HomeScreen> {
       const Duration(minutes: 10),
       (_) => _refreshProfileData(),
     );
+    _adBlockPulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 900),
+    );
+    _adBlockScale = Tween<double>(begin: 1.0, end: 1.08).animate(
+      CurvedAnimation(parent: _adBlockPulseController, curve: Curves.easeInOut),
+    );
   }
 
   void _onProviderChanged() {}
@@ -47,6 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _profileRefreshTimer?.cancel();
+    _adBlockPulseController.dispose();
     super.dispose();
   }
 
@@ -246,6 +257,21 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
+  void _updateAdBlockPulse(bool enabled) {
+    if (enabled) {
+      if (!_adBlockPulseController.isAnimating) {
+        _adBlockPulseController.repeat(reverse: true);
+      }
+      return;
+    }
+
+    if (_adBlockPulseController.isAnimating ||
+        _adBlockPulseController.value != 0) {
+      _adBlockPulseController.stop();
+      _adBlockPulseController.value = 0;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<LanguageProvider>(
@@ -265,15 +291,58 @@ class _HomeScreenState extends State<HomeScreen> {
                   Consumer<V2RayProvider>(
                     builder: (context, provider, _) {
                       final enabled = provider.adBlockEnabled;
-                      return IconButton(
-                        icon: Icon(
-                          enabled ? Icons.security : Icons.security_outlined,
-                          color: enabled ? AppTheme.primaryGreen : Colors.white,
+                      _updateAdBlockPulse(enabled);
+                      return Padding(
+                        padding: const EdgeInsets.only(right: 20),
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(18),
+                          onTap: () async {
+                            await provider.setAdBlockEnabled(!enabled);
+                          },
+                          child: ScaleTransition(
+                            scale: _adBlockScale,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 8,
+                              ),
+                              decoration: BoxDecoration(
+                                color: enabled
+                                    ? AppTheme.primaryGreen.withOpacity(0.15)
+                                    : Colors.white.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: enabled
+                                      ? AppTheme.primaryGreen
+                                      : Colors.white24,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    enabled
+                                        ? Icons.security
+                                        : Icons.security_outlined,
+                                    color: enabled
+                                        ? AppTheme.primaryGreen
+                                        : Colors.white,
+                                    size: 26,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  const Text(
+                                    'ضد تبلیغات',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
-                        onPressed: () async {
-                          await provider.setAdBlockEnabled(!enabled);
-                        },
-                        tooltip: enabled ? 'AdBlock: On' : 'AdBlock: Off',
                       );
                     },
                   ),
@@ -338,12 +407,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     );
                                   },
-                                  child: provider.connectMode ==
-                                          ConnectMode.normal
+                                  child:
+                                      provider.connectMode == ConnectMode.normal
                                       ? const Padding(
                                           key: ValueKey('server_selector'),
-                                          padding:
-                                              EdgeInsets.only(bottom: 20),
+                                          padding: EdgeInsets.only(bottom: 20),
                                           child: ServerSelector(),
                                         )
                                       : const SizedBox(
@@ -356,13 +424,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                 AnimatedSlide(
                                   duration: const Duration(milliseconds: 550),
                                   curve: Curves.easeOutQuart,
-                                  offset: provider.connectMode ==
-                                          ConnectMode.smart
+                                  offset:
+                                      provider.connectMode == ConnectMode.smart
                                       ? const Offset(0, -0.03)
                                       : Offset.zero,
                                   child: AnimatedOpacity(
-                                    duration:
-                                        const Duration(milliseconds: 550),
+                                    duration: const Duration(milliseconds: 550),
                                     curve: Curves.easeOutQuart,
                                     opacity: 1,
                                     child: ConnectionButton(
