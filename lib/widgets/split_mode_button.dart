@@ -6,6 +6,7 @@ class SplitModeButton extends StatelessWidget {
   final ServerScoreMode mode;
   final bool scoredEnabled;
   final bool discoverEnabled;
+  final bool forceInactive;
   final ValueChanged<ServerScoreMode> onChanged;
 
   const SplitModeButton({
@@ -13,13 +14,14 @@ class SplitModeButton extends StatelessWidget {
     required this.mode,
     required this.scoredEnabled,
     required this.discoverEnabled,
+    this.forceInactive = false,
     required this.onChanged,
   });
 
   @override
   Widget build(BuildContext context) {
-    final leftActive = mode == ServerScoreMode.discover;
-    final rightActive = mode == ServerScoreMode.scored;
+    final leftActive = !forceInactive && mode == ServerScoreMode.discover;
+    final rightActive = !forceInactive && mode == ServerScoreMode.scored;
 
     return Container(
       height: 48,
@@ -78,6 +80,8 @@ class SplitModeButton extends StatelessWidget {
 
 
 class CustomConfigButtons extends StatelessWidget {
+  final bool customActive;
+  final bool mixActive;
   final bool customEnabled;
   final bool mixEnabled;
   final VoidCallback? onCustomTap;
@@ -85,6 +89,8 @@ class CustomConfigButtons extends StatelessWidget {
 
   const CustomConfigButtons({
     super.key,
+    required this.customActive,
+    required this.mixActive,
     required this.customEnabled,
     required this.mixEnabled,
     this.onCustomTap,
@@ -110,7 +116,7 @@ class CustomConfigButtons extends StatelessWidget {
       child: Row(
         children: [
           _SplitSide(
-            active: false,
+            active: customActive,
             label: 'کانفیگ اختصاصی',
             icon: Icons.tune,
             locked: !customEnabled,
@@ -125,7 +131,7 @@ class CustomConfigButtons extends StatelessWidget {
           ),
           _SplitDivider(),
           _SplitSide(
-            active: false,
+            active: mixActive,
             label: 'میکس کانفیگ',
             icon: Icons.merge_type,
             locked: !mixEnabled,

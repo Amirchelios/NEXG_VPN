@@ -321,6 +321,83 @@ class _ConnectionButtonState extends State<ConnectionButton>
     await provider.connectToServer(pickedConfig, provider.isProxyMode);
   }
 
+  Future<V2RayConfig?> _showCustomConfigPicker(
+    BuildContext context,
+    List<V2RayConfig> configs,
+  ) async {
+    return showDialog<V2RayConfig>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppTheme.secondaryDark,
+          title: const Text(
+            'انتخاب کانفیگ اختصاصی',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: configs.length,
+              separatorBuilder: (_, __) => Divider(
+                color: Colors.white.withValues(alpha: 0.08),
+                height: 12,
+              ),
+              itemBuilder: (context, index) {
+                final config = configs[index];
+                final label = config.remark.isNotEmpty
+                    ? config.remark
+                    : '${config.configType} ${config.address}:${config.port}';
+                return ListTile(
+                  onTap: () => Navigator.of(context).pop(config),
+                  title: Text(
+                    label,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'انصراف',
+                style: TextStyle(color: AppTheme.primaryGreen),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _connectUsingCustomConfigs(
+    BuildContext context,
+    V2RayProvider provider,
+  ) async {
+    final configs = await provider.fetchCustomConfigs();
+    if (!mounted) return;
+    if (configs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('کانفیگ معتبری پیدا نشد.'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    final V2RayConfig? pickedConfig = configs.length == 1
+        ? configs.first
+        : await _showCustomConfigPicker(context, configs);
+    if (pickedConfig == null) return;
+
+    await provider.selectConfig(pickedConfig);
+    await provider.connectToServer(pickedConfig, provider.isProxyMode);
+  }
+
   // Helper method to run auto-select and then connect
   Future<void> _runAutoSelectAndConnect(
     BuildContext context,
@@ -1058,6 +1135,11 @@ class _ConnectionButtonState extends State<ConnectionButton>
               return;
             }
             await provider.connectToCustomConfigs(presets);
+            return;
+          }
+
+          if (provider.isCustomConfigMode) {
+            await _connectUsingCustomConfigs(context, provider);
             return;
           }
 

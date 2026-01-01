@@ -42,6 +42,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   bool _isAutoRecovering = false;
   ConnectMode _connectMode = ConnectMode.normal;
   SmartFlowState _smartFlowState = SmartFlowState.idle;
+  bool _customConfigMode = false;
   AutoSelectCancellationToken? _autoRecoverCancellationToken;
   bool _smartFlowCancelled = false;
   bool _cancelConnectRequested = false;
@@ -69,6 +70,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   SmartFlowState get smartFlowState => _smartFlowState;
   bool get adBlockEnabled => _adBlockEnabled;
   bool get isDisconnecting => _isDisconnecting;
+  bool get isCustomConfigMode => _customConfigMode;
 
   void setSmartFlowState(SmartFlowState state) {
     if (_smartFlowState == state) {
@@ -154,6 +156,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         (mode) => mode.name == (prefs.getString('connect_mode') ?? 'normal'),
         orElse: () => ConnectMode.normal,
       );
+      _customConfigMode = prefs.getBool('custom_config_mode') ?? false;
 
       // Update all subscriptions on app start with fresh data
       // Only update if we have subscriptions to avoid unnecessary operations
@@ -1037,13 +1040,17 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
             // Don't fail the connection for this
           }
 
-          if (_connectMode == ConnectMode.normal && !_isAutoRecovering) {
+          if (!_customConfigMode &&
+              _connectMode == ConnectMode.normal &&
+              !_isAutoRecovering) {
             setSmartFlowState(SmartFlowState.testing);
           }
 
-          Future(() async {
-            await _scoreConnectedServer(config);
-          });
+          if (!_customConfigMode) {
+            Future(() async {
+              await _scoreConnectedServer(config);
+            });
+          }
 
           _log('Successfully connected to ${config.remark}');
         } catch (e) {
@@ -1055,7 +1062,8 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         _setError(
           'Failed to connect to ${config.remark} after $attemptCount attempts: $lastError',
         );
-        if (_connectMode == ConnectMode.normal &&
+        if (!_customConfigMode &&
+            _connectMode == ConnectMode.normal &&
             !_smartFlowCancelled &&
             !_isAutoRecovering) {
           await ServerScoreStore.addBadServer(config.id);
@@ -1165,6 +1173,16 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
     }
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('connect_mode', mode.name);
+    notifyListeners();
+  }
+
+  Future<void> setCustomConfigMode(bool enabled) async {
+    if (_customConfigMode == enabled) {
+      return;
+    }
+    _customConfigMode = enabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('custom_config_mode', enabled);
     notifyListeners();
   }
 

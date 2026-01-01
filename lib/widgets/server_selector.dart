@@ -22,6 +22,8 @@ class _ServerSelectorState extends State<ServerSelector> {
   bool _isRefreshing = false;
   bool _newLocked = false;
   Map<String, ServerScore> _serverScores = {};
+  bool _customSelected = false;
+  bool _mixSelected = false;
 
   @override
   void initState() {
@@ -70,7 +72,11 @@ class _ServerSelectorState extends State<ServerSelector> {
     }
     setState(() {
       _scoreMode = mode;
+      _customSelected = false;
+      _mixSelected = false;
     });
+    final provider = Provider.of<V2RayProvider>(context, listen: false);
+    await provider.setCustomConfigMode(false);
     await ServerScoreStore.saveMode(mode);
   }
 
@@ -110,6 +116,13 @@ class _ServerSelectorState extends State<ServerSelector> {
   }
 
   Future<void> _handleCustomConfig(V2RayProvider provider) async {
+    setState(() {
+      _customSelected = true;
+      _mixSelected = false;
+      _scoreMode = ServerScoreMode.scored;
+    });
+    await provider.setCustomConfigMode(true);
+    await ServerScoreStore.saveMode(ServerScoreMode.scored);
     if (provider.connectMode != ConnectMode.normal) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -138,9 +151,8 @@ class _ServerSelectorState extends State<ServerSelector> {
         : await _showCustomConfigPicker(configs);
     if (pickedConfig == null) return;
 
-    await provider.connectToCustomConfigs([
-      {'remark': pickedConfig.remark, 'config': pickedConfig.fullConfig},
-    ]);
+    await provider.selectConfig(pickedConfig);
+    await provider.connectToServer(pickedConfig, provider.isProxyMode);
   }
 
   Future<V2RayConfig?> _showCustomConfigPicker(
@@ -195,6 +207,12 @@ class _ServerSelectorState extends State<ServerSelector> {
   }
 
   void _handleMixConfig() {
+    setState(() {
+      _customSelected = false;
+      _mixSelected = true;
+    });
+    final provider = Provider.of<V2RayProvider>(context, listen: false);
+    provider.setCustomConfigMode(false);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('مکانیزم میکس بعدا اضافه می‌شود.')),
     );
@@ -273,6 +291,8 @@ class _ServerSelectorState extends State<ServerSelector> {
             SizedBox(
               height: 48,
               child: CustomConfigButtons(
+                customActive: _customSelected,
+                mixActive: _mixSelected,
                 customEnabled: !isUpdating && isXConnect,
                 mixEnabled: !isUpdating && isXConnect,
                 onCustomTap: isUpdating || !isXConnect
@@ -295,6 +315,7 @@ class _ServerSelectorState extends State<ServerSelector> {
                     : SplitModeButton(
                         key: const ValueKey('split_mode'),
                         mode: _scoreMode,
+                        forceInactive: _customSelected || _mixSelected,
                         scoredEnabled: _hasScores &&
                             provider.connectMode == ConnectMode.normal,
                         discoverEnabled: !_newLocked &&

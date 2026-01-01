@@ -47,6 +47,8 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
   bool _hasScores = false;
   bool _newLocked = false;
   ServerScoreMode _scoreMode = ServerScoreMode.discover;
+  bool _customSelected = false;
+  bool _mixSelected = false;
 
   // Add the missing _originalOrder field
   List<V2RayConfig> _originalOrder = [];
@@ -238,6 +240,13 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
   }
 
   Future<void> _handleCustomConfig(V2RayProvider provider) async {
+    setState(() {
+      _customSelected = true;
+      _mixSelected = false;
+      _scoreMode = ServerScoreMode.scored;
+    });
+    await provider.setCustomConfigMode(true);
+    await ServerScoreStore.saveMode(ServerScoreMode.scored);
     if (provider.connectMode != ConnectMode.normal) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -266,9 +275,8 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
         : await _showCustomConfigPicker(configs);
     if (pickedConfig == null) return;
 
-    await provider.connectToCustomConfigs([
-      {'remark': pickedConfig.remark, 'config': pickedConfig.fullConfig},
-    ]);
+    await provider.selectConfig(pickedConfig);
+    await provider.connectToServer(pickedConfig, provider.isProxyMode);
   }
 
   Future<V2RayConfig?> _showCustomConfigPicker(
@@ -323,6 +331,12 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
   }
 
   void _handleMixConfig() {
+    setState(() {
+      _customSelected = false;
+      _mixSelected = true;
+    });
+    Provider.of<V2RayProvider>(context, listen: false)
+        .setCustomConfigMode(false);
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text('مکانیزم میکس بعدا اضافه می‌شود.')),
     );
@@ -970,7 +984,11 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
     }
     setState(() {
       _scoreMode = mode;
+      _customSelected = false;
+      _mixSelected = false;
     });
+    await Provider.of<V2RayProvider>(context, listen: false)
+        .setCustomConfigMode(false);
     await ServerScoreStore.saveMode(mode);
   }
 
@@ -1197,6 +1215,8 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
               builder: (context, provider, _) {
                 final isXConnect = provider.connectMode == ConnectMode.normal;
                 return CustomConfigButtons(
+                  customActive: _customSelected,
+                  mixActive: _mixSelected,
                   customEnabled: isXConnect,
                   mixEnabled: isXConnect,
                   onCustomTap:
@@ -1213,6 +1233,7 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
                 final isXConnect = provider.connectMode == ConnectMode.normal;
                 return SplitModeButton(
                   mode: _scoreMode,
+                  forceInactive: _customSelected || _mixSelected,
                   scoredEnabled: _hasScores && isXConnect,
                   discoverEnabled: !_newLocked && isXConnect,
                   onChanged: _setScoreMode,
