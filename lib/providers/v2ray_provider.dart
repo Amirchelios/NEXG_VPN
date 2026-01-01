@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_v2ray_client/flutter_v2ray.dart';
 import 'package:flutter/services.dart';
@@ -43,6 +44,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   ConnectMode _connectMode = ConnectMode.normal;
   SmartFlowState _smartFlowState = SmartFlowState.idle;
   bool _customConfigMode = false;
+  bool _profileEmc = false;
   AutoSelectCancellationToken? _autoRecoverCancellationToken;
   bool _smartFlowCancelled = false;
   bool _cancelConnectRequested = false;
@@ -71,6 +73,7 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   bool get adBlockEnabled => _adBlockEnabled;
   bool get isDisconnecting => _isDisconnecting;
   bool get isCustomConfigMode => _customConfigMode;
+  bool get isCustomConfigAllowed => _profileEmc;
 
   void setSmartFlowState(SmartFlowState state) {
     if (_smartFlowState == state) {
@@ -157,6 +160,18 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
         orElse: () => ConnectMode.normal,
       );
       _customConfigMode = prefs.getBool('custom_config_mode') ?? false;
+      _profileEmc = prefs.getBool('profile_emc') ??
+          _loadProfileEmc(prefs.getString('profile_data'));
+      if (_profileEmc) {
+        _customConfigMode = true;
+        await prefs.setBool('custom_config_mode', true);
+      } else if (_customConfigMode) {
+        _customConfigMode = false;
+        await prefs.setBool('custom_config_mode', false);
+      }
+      if (!_profileEmc) {
+        await ServerScoreStore.saveMode(ServerScoreMode.discover);
+      }
 
       // Update all subscriptions on app start with fresh data
       // Only update if we have subscriptions to avoid unnecessary operations
@@ -1177,13 +1192,49 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   }
 
   Future<void> setCustomConfigMode(bool enabled) async {
+    if (enabled && !_profileEmc) {
+      return;
+    }
     if (_customConfigMode == enabled) {
       return;
     }
     _customConfigMode = enabled;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('custom_config_mode', enabled);
+    if (!enabled) {
+      await ServerScoreStore.saveMode(ServerScoreMode.discover);
+    }
     notifyListeners();
+  }
+
+  Future<void> setProfileEmc(bool enabled) async {
+    if (_profileEmc == enabled) {
+      return;
+    }
+    _profileEmc = enabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('profile_emc', enabled);
+    if (!_profileEmc && _customConfigMode) {
+      _customConfigMode = false;
+      await prefs.setBool('custom_config_mode', false);
+      await ServerScoreStore.saveMode(ServerScoreMode.discover);
+    } else if (_profileEmc && !_customConfigMode) {
+      _customConfigMode = true;
+      await prefs.setBool('custom_config_mode', true);
+    }
+    notifyListeners();
+  }
+
+  bool _loadProfileEmc(String? rawProfile) {
+    try {
+      if (rawProfile == null || rawProfile.isEmpty) {
+        return false;
+      }
+      final data = jsonDecode(rawProfile) as Map<String, dynamic>;
+      return data['emc'] == true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Future<void> setAdBlockEnabled(bool enabled) async {

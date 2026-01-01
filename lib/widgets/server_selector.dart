@@ -23,12 +23,21 @@ class _ServerSelectorState extends State<ServerSelector> {
   bool _newLocked = false;
   Map<String, ServerScore> _serverScores = {};
   bool _customSelected = false;
-  bool _mixSelected = false;
 
   @override
   void initState() {
     super.initState();
     _refreshScoreState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final provider = Provider.of<V2RayProvider>(context, listen: false);
+      if (!mounted) return;
+      setState(() {
+        _customSelected = provider.isCustomConfigMode;
+      });
+      if (provider.isCustomConfigMode) {
+        ServerScoreStore.saveMode(ServerScoreMode.scored);
+      }
+    });
   }
 
   @override
@@ -73,7 +82,6 @@ class _ServerSelectorState extends State<ServerSelector> {
     setState(() {
       _scoreMode = mode;
       _customSelected = false;
-      _mixSelected = false;
     });
     final provider = Provider.of<V2RayProvider>(context, listen: false);
     await provider.setCustomConfigMode(false);
@@ -118,11 +126,19 @@ class _ServerSelectorState extends State<ServerSelector> {
   Future<void> _handleCustomConfig(V2RayProvider provider) async {
     setState(() {
       _customSelected = true;
-      _mixSelected = false;
       _scoreMode = ServerScoreMode.scored;
     });
     await provider.setCustomConfigMode(true);
     await ServerScoreStore.saveMode(ServerScoreMode.scored);
+    if (!provider.isCustomConfigAllowed) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('این گزینه برای پروفایل شما فعال نیست.')),
+        );
+      }
+      await provider.setCustomConfigMode(false);
+      return;
+    }
     if (provider.connectMode != ConnectMode.normal) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -206,24 +222,17 @@ class _ServerSelectorState extends State<ServerSelector> {
     );
   }
 
-  void _handleMixConfig() {
-    setState(() {
-      _customSelected = false;
-      _mixSelected = true;
-    });
-    final provider = Provider.of<V2RayProvider>(context, listen: false);
-    provider.setCustomConfigMode(false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('مکانیزم میکس بعدا اضافه می‌شود.')),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Consumer3<V2RayProvider, LanguageProvider, WallpaperService>(
       builder: (context, provider, languageProvider, wallpaperService, _) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           _refreshScoreState(configs: provider.configs);
+          if (_customSelected != provider.isCustomConfigMode && mounted) {
+            setState(() {
+              _customSelected = provider.isCustomConfigMode;
+            });
+          }
         });
         return Directionality(
           textDirection: languageProvider.textDirection,
@@ -292,13 +301,14 @@ class _ServerSelectorState extends State<ServerSelector> {
               height: 48,
               child: CustomConfigButtons(
                 customActive: _customSelected,
-                mixActive: _mixSelected,
-                customEnabled: !isUpdating && isXConnect,
-                mixEnabled: !isUpdating && isXConnect,
-                onCustomTap: isUpdating || !isXConnect
+                customEnabled: !isUpdating &&
+                    isXConnect &&
+                    provider.isCustomConfigAllowed,
+                onCustomTap: isUpdating ||
+                        !isXConnect ||
+                        !provider.isCustomConfigAllowed
                     ? null
                     : () => _handleCustomConfig(provider),
-                onMixTap: isUpdating || !isXConnect ? null : _handleMixConfig,
               ),
             ),
             const SizedBox(height: 10),
@@ -315,7 +325,7 @@ class _ServerSelectorState extends State<ServerSelector> {
                     : SplitModeButton(
                         key: const ValueKey('split_mode'),
                         mode: _scoreMode,
-                        forceInactive: _customSelected || _mixSelected,
+                        forceInactive: _customSelected,
                         scoredEnabled: _hasScores &&
                             provider.connectMode == ConnectMode.normal,
                         discoverEnabled: !_newLocked &&

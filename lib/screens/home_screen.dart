@@ -164,6 +164,8 @@ class _HomeScreenState extends State<HomeScreen> with TickerProviderStateMixin {
         setState(() {
           _profileData = data;
         });
+        final provider = Provider.of<V2RayProvider>(context, listen: false);
+        await provider.setProfileEmc(data['emc'] == true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('اطلاعات پروفایل بروزرسانی شد'),

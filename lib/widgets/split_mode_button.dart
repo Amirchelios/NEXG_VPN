@@ -81,20 +81,14 @@ class SplitModeButton extends StatelessWidget {
 
 class CustomConfigButtons extends StatelessWidget {
   final bool customActive;
-  final bool mixActive;
   final bool customEnabled;
-  final bool mixEnabled;
   final VoidCallback? onCustomTap;
-  final VoidCallback? onMixTap;
 
   const CustomConfigButtons({
     super.key,
     required this.customActive,
-    required this.mixActive,
     required this.customEnabled,
-    required this.mixEnabled,
     this.onCustomTap,
-    this.onMixTap,
   });
 
   @override
@@ -125,21 +119,6 @@ class CustomConfigButtons extends StatelessWidget {
               colors: [
                 AppTheme.primaryGreen,
                 AppTheme.primaryGreen.withValues(alpha: 0.65),
-              ],
-            ),
-            inactiveGlow: Colors.white.withValues(alpha: 0.08),
-          ),
-          _SplitDivider(),
-          _SplitSide(
-            active: mixActive,
-            label: 'میکس کانفیگ',
-            icon: Icons.merge_type,
-            locked: !mixEnabled,
-            onTap: mixEnabled ? onMixTap : null,
-            activeGradient: LinearGradient(
-              colors: [
-                AppTheme.connectingBlue,
-                AppTheme.connectingBlue.withValues(alpha: 0.65),
               ],
             ),
             inactiveGlow: Colors.white.withValues(alpha: 0.08),
