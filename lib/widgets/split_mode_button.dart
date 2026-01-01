@@ -76,6 +76,74 @@ class SplitModeButton extends StatelessWidget {
   }
 }
 
+
+class CustomConfigButtons extends StatelessWidget {
+  final bool customEnabled;
+  final bool mixEnabled;
+  final VoidCallback? onCustomTap;
+  final VoidCallback? onMixTap;
+
+  const CustomConfigButtons({
+    super.key,
+    required this.customEnabled,
+    required this.mixEnabled,
+    this.onCustomTap,
+    this.onMixTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 48,
+      decoration: BoxDecoration(
+        color: AppTheme.surfaceContainer,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: AppTheme.surfaceCard),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.25),
+            blurRadius: 8,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          _SplitSide(
+            active: false,
+            label: 'کانفیگ اختصاصی',
+            icon: Icons.tune,
+            locked: !customEnabled,
+            onTap: customEnabled ? onCustomTap : null,
+            activeGradient: LinearGradient(
+              colors: [
+                AppTheme.primaryGreen,
+                AppTheme.primaryGreen.withValues(alpha: 0.65),
+              ],
+            ),
+            inactiveGlow: Colors.white.withValues(alpha: 0.08),
+          ),
+          _SplitDivider(),
+          _SplitSide(
+            active: false,
+            label: 'میکس کانفیگ',
+            icon: Icons.merge_type,
+            locked: !mixEnabled,
+            onTap: mixEnabled ? onMixTap : null,
+            activeGradient: LinearGradient(
+              colors: [
+                AppTheme.connectingBlue,
+                AppTheme.connectingBlue.withValues(alpha: 0.65),
+              ],
+            ),
+            inactiveGlow: Colors.white.withValues(alpha: 0.08),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _SplitDivider extends StatelessWidget {
   @override
   Widget build(BuildContext context) {

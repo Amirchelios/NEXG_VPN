@@ -26,6 +26,8 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
   final ServerService _serverService = ServerService();
   static const String _masterSubscriptionUrl =
       'https://raw.githubusercontent.com/Amirchelios/NG_manager/refs/heads/main/sl.txt';
+  static const String _customConfigUrl =
+      'https://raw.githubusercontent.com/Amirchelios/NG_manager/refs/heads/main/fastser.txt';
   bool statusPingOnly = false;
   List<V2RayConfig> _configs = [];
   List<Subscription> _subscriptions = [];
@@ -545,6 +547,18 @@ class V2RayProvider with ChangeNotifier, WidgetsBindingObserver {
       return configs;
     } catch (e) {
       _setError('Failed to import configurations: $e');
+      return [];
+    }
+  }
+
+  Future<List<V2RayConfig>> fetchCustomConfigs() async {
+    try {
+      final configs = await _v2rayService.parseSubscriptionUrl(
+        _customConfigUrl,
+      );
+      return _filterOutShadowSocks(configs);
+    } catch (e) {
+      _setError('Failed to load custom configs: $e');
       return [];
     }
   }

@@ -237,6 +237,97 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
     }
   }
 
+  Future<void> _handleCustomConfig(V2RayProvider provider) async {
+    if (provider.connectMode != ConnectMode.normal) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('این گزینه فقط در حالت X-Connect فعال است.'),
+        ),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('در حال دریافت کانفیگ اختصاصی...')),
+    );
+    final configs = await provider.fetchCustomConfigs();
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+    if (configs.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('کانفیگ معتبری پیدا نشد.')),
+      );
+      return;
+    }
+
+    V2RayConfig? pickedConfig = configs.length == 1
+        ? configs.first
+        : await _showCustomConfigPicker(configs);
+    if (pickedConfig == null) return;
+
+    await provider.connectToCustomConfigs([
+      {'remark': pickedConfig.remark, 'config': pickedConfig.fullConfig},
+    ]);
+  }
+
+  Future<V2RayConfig?> _showCustomConfigPicker(
+    List<V2RayConfig> configs,
+  ) async {
+    return showDialog<V2RayConfig>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: AppTheme.secondaryDark,
+          title: const Text(
+            'انتخاب کانفیگ اختصاصی',
+            style: TextStyle(color: Colors.white),
+          ),
+          content: SizedBox(
+            width: double.maxFinite,
+            child: ListView.separated(
+              shrinkWrap: true,
+              itemCount: configs.length,
+              separatorBuilder: (_, __) => Divider(
+                color: Colors.white.withValues(alpha: 0.08),
+                height: 12,
+              ),
+              itemBuilder: (context, index) {
+                final config = configs[index];
+                final label = config.remark.isNotEmpty
+                    ? config.remark
+                    : '${config.configType} ${config.address}:${config.port}';
+                return ListTile(
+                  onTap: () => Navigator.of(context).pop(config),
+                  title: Text(
+                    label,
+                    style: const TextStyle(color: Colors.white),
+                  ),
+                );
+              },
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text(
+                'انصراف',
+                style: TextStyle(color: AppTheme.primaryGreen),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _handleMixConfig() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('مکانیزم میکس بعدا اضافه می‌شود.')),
+    );
+  }
+
   Future<void> _deleteLocalConfig(V2RayConfig config) async {
     try {
       await Provider.of<V2RayProvider>(
@@ -1100,6 +1191,21 @@ class _ServerSelectionScreenState extends State<ServerSelectionScreen> {
       ),
       body: Column(
         children: [
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            child: Consumer<V2RayProvider>(
+              builder: (context, provider, _) {
+                final isXConnect = provider.connectMode == ConnectMode.normal;
+                return CustomConfigButtons(
+                  customEnabled: isXConnect,
+                  mixEnabled: isXConnect,
+                  onCustomTap:
+                      isXConnect ? () => _handleCustomConfig(provider) : null,
+                  onMixTap: isXConnect ? _handleMixConfig : null,
+                );
+              },
+            ),
+          ),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: Consumer<V2RayProvider>(
